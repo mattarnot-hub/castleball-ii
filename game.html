@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#08090E">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="description" content="Castle Ball II — a 16-bit Gate Defense arcade game. Defend the Castle Gate with your racket and smash the ball into the diamond.">
+<meta property="og:title" content="Castle Ball II — Gate Defense (16-bit)">
+<meta property="og:description" content="A SNES-style arcade simulation of Castle Ball. Time your racket, defend the Gate, run the bases.">
+<title>Castle Ball II — Gate Defense</title>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Bebas+Neue&display=swap" rel="stylesheet">
+<style>
+:root{
+  --gold:#C9A84C; --dark:#08090E; --panel:#0F1019; --cream:#F0E8D0;
+  --border:rgba(201,168,76,0.22); --muted:rgba(240,232,208,0.45);
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{height:100%;}
+body{
+  background:
+    radial-gradient(circle at 50% 0%, #15161f 0%, var(--dark) 60%);
+  color:var(--cream); font-family:'Press Start 2P',monospace;
+  min-height:100vh; display:flex; flex-direction:column; align-items:center;
+  overflow-x:hidden; padding:14px 10px 30px;
+}
+header{
+  width:100%; max-width:780px; display:flex; align-items:center;
+  justify-content:space-between; gap:10px; margin-bottom:14px;
+}
+.logo{font-family:'Bebas Neue';font-size:30px;letter-spacing:3px;color:var(--gold);line-height:1;}
+.logo b{color:var(--cream);}
+.logo small{display:block;font-family:'Press Start 2P';font-size:8px;letter-spacing:2px;color:var(--muted);margin-top:4px;}
+.nav a{
+  font-size:8px;color:var(--gold);text-decoration:none;border:1px solid var(--border);
+  padding:8px 10px;letter-spacing:1px;transition:.15s;display:inline-block;
+}
+.nav a:hover{background:var(--gold);color:var(--dark);}
+
+/* ── SCREEN / CRT ── */
+.cab{
+  position:relative; width:100%; max-width:780px;
+  border:2px solid var(--border); border-radius:10px;
+  background:#000; padding:14px; box-shadow:0 0 40px rgba(201,168,76,0.08), inset 0 0 0 2px #000;
+}
+.screen-wrap{position:relative; width:100%; aspect-ratio:256/224; background:#000; overflow:hidden; border-radius:4px;}
+canvas{
+  position:absolute; inset:0; width:100%; height:100%;
+  image-rendering:pixelated; image-rendering:crisp-edges;
+}
+/* scanlines + vignette overlay */
+.crt{
+  position:absolute; inset:0; pointer-events:none; border-radius:4px;
+  background:
+    linear-gradient(rgba(0,0,0,0) 50%, rgba(0,0,0,0.28) 50%),
+    radial-gradient(circle at 50% 50%, rgba(0,0,0,0) 55%, rgba(0,0,0,0.45) 100%);
+  background-size:100% 4px, 100% 100%;
+  mix-blend-mode:multiply;
+}
+
+/* ── CONTROLS HELP ── */
+.help{
+  width:100%; max-width:780px; margin-top:16px; display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px;
+}
+.help div{border:1px solid var(--border);padding:12px;background:var(--panel);}
+.help h4{font-size:9px;color:var(--gold);letter-spacing:1px;margin-bottom:8px;}
+.help p{font-size:8px;line-height:1.9;color:var(--cream);}
+.key{display:inline-block;background:#222;border:1px solid #444;border-bottom:2px solid #444;border-radius:3px;padding:2px 6px;color:var(--gold);}
+.note{width:100%;max-width:780px;margin-top:14px;font-size:8px;line-height:1.9;color:var(--muted);text-align:center;}
+.note a{color:var(--gold);}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">CASTLE<b>BALL</b> <span style="color:var(--gold)">II</span>
+    <small>GATE DEFENSE · 16-BIT</small>
+  </div>
+  <div class="nav"><a href="index.html">◂ RULES CONFIGURATOR</a></div>
+</header>
+
+<div class="cab">
+  <div class="screen-wrap">
+    <canvas id="game" width="256" height="224"></canvas>
+    <div class="crt"></div>
+  </div>
+</div>
+
+<div class="help">
+  <div>
+    <h4>MOVE RACKET</h4>
+    <p><span class="key">◂</span> <span class="key">▸</span> / <span class="key">A</span> <span class="key">D</span><br>Line up with the pitch lane.</p>
+  </div>
+  <div>
+    <h4>SWING</h4>
+    <p><span class="key">SPACE</span> / <span class="key">Z</span> / tap<br>Time it as the ball reaches the plate.</p>
+  </div>
+  <div>
+    <h4>GOAL</h4>
+    <p>Match the lane + nail the timing. Whiff and it sails into the Castle Gate — defense scores.</p>
+  </div>
+</div>
+
+<p class="note">
+  An original 16-bit simulation of Castle Ball, styled after SNES sports titles.
+  Not affiliated with any commercial game. &nbsp;·&nbsp; <a href="index.html">Configure the real rules →</a>
+</p>
+
+<script>
+(() => {
+  const cv = document.getElementById('game');
+  const g = cv.getContext('2d');
+  g.imageSmoothingEnabled = false;
+  const W = 256, H = 224;
+
+  // ── 16-bit palette ────────────────────────────────────────────────
+  const C = {
+    sky1:'#2a3a6b', sky2:'#4a6aa8', cloud:'#cdd9f0',
+    grass1:'#2d7a2d', grass2:'#256325', grassDk:'#1a4a1a',
+    dirt:'#a06a3a', dirtDk:'#7a5535', line:'#e8e4d0',
+    gold:'#C9A84C', cream:'#F0E8D0', dark:'#08090E',
+    red:'#C0392B', blue:'#4A9EDD', skin:'#e8b48a',
+    net:'#d8d8e8', netDk:'#8a8aa0', ball:'#f4f4f4', ballSh:'#b8b8b8',
+    shadow:'rgba(0,0,0,0.28)', wht:'#ffffff', blk:'#101018'
+  };
+
+  // ── scoring (mirrors the Castle Ball rules) ───────────────────────
+  const SCORE = {
+    HOME:{label:'SCORE AT HOME!', pts:1000, col:C.gold},
+    HR:{label:'HOME RUN', pts:100, col:C.gold},
+    THIRD:{label:'TRIPLE — 3RD', pts:80, col:C.cream},
+    SECOND:{label:'DOUBLE — 2ND', pts:40, col:C.cream},
+    NML:{label:"NO MAN'S LAND", pts:50, col:C.blue},
+    FIRST:{label:'SINGLE — 1ST', pts:10, col:C.cream},
+    GATE:{label:'GATE GOAL · DEFENSE', pts:50, col:C.red},
+  };
+
+  // ── audio (tiny square-wave blips) ────────────────────────────────
+  let actx;
+  function beep(freq, dur, type='square', vol=0.06){
+    try{
+      if(!actx) actx = new (window.AudioContext||window.webkitAudioContext)();
+      const o=actx.createOscillator(), a=actx.createGain();
+      o.type=type; o.frequency.value=freq; o.connect(a); a.connect(actx.destination);
+      a.gain.setValueAtTime(vol, actx.currentTime);
+      a.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime+dur);
+      o.start(); o.stop(actx.currentTime+dur);
+    }catch(e){}
+  }
+  function chord(freqs,dur){ freqs.forEach((f,i)=>setTimeout(()=>beep(f,dur),i*55)); }
+
+  // ── lanes (in / middle / out) ─────────────────────────────────────
+  const LANE_X = [96, 128, 160];
+  const PLATE_Y = 176;      // where contact should happen
+  const PITCH_Y0 = 64;      // pitcher release height
+  const GATE_Y  = 206;
+
+  // ── game state ────────────────────────────────────────────────────
+  let state = 'TITLE';   // TITLE | PITCH | RESULT | OVER
+  const game = {
+    score:0, defScore:0, outs:0, maxOuts:9,
+    racket:1, swung:false, swingT:0,
+    ball:null,            // {lane, t, dur, curve}
+    result:null, resultTimer:0, resultBall:null,
+    baseLit:[false,false,false], baseFlash:0,
+    runners:0, shake:0, t:0
+  };
+
+  function resetGame(){
+    game.score=0; game.defScore=0; game.outs=0;
+    game.racket=1; game.runners=0;
+    game.baseLit=[false,false,false];
+    state='TITLE';
+  }
+
+  function newPitch(){
+    game.swung=false; game.swingT=0; game.result=null; game.resultBall=null;
+    const speedup = 1 - Math.min(game.outs,8)*0.045;   // faster as outs climb
+    game.ball = {
+      lane: (Math.random()*3)|0,
+      t: 0,
+      dur: (78*speedup)|0,            // frames to reach plate
+      curve: (Math.random()-0.5)*0.9, // slight horizontal drift
+      target: PLATE_Y + 36            // continues to the gate if missed
+    };
+    state='PITCH';
+    beep(180,0.08,'square',0.05);
+  }
+
+  // ── input ─────────────────────────────────────────────────────────
+  const keys={};
+  function press(code){
+    if(!actx){ try{actx=new(window.AudioContext||window.webkitAudioContext)();}catch(e){} }
+    if(state==='TITLE'){ resetForPlay(); newPitch(); return; }
+    if(state==='OVER'){ resetGame(); resetForPlay(); newPitch(); return; }
+    if(state==='RESULT' && game.resultTimer<=0){ nextAfterResult(); return; }
+    if(state==='PITCH'){
+      if(code==='left'){ game.racket=Math.max(0,game.racket-1); beep(330,0.04); }
+      else if(code==='right'){ game.racket=Math.min(2,game.racket+1); beep(330,0.04); }
+      else if(code==='swing'){ doSwing(); }
+    }
+  }
+  function resetForPlay(){
+    game.score=0; game.defScore=0; game.outs=0; game.runners=0;
+    game.baseLit=[false,false,false]; game.racket=1;
+  }
+
+  window.addEventListener('keydown', e=>{
+    const k=e.key.toLowerCase();
+    if(['arrowleft','arrowright','arrowup','arrowdown',' '].includes(k)) e.preventDefault();
+    if(keys[k]) return; keys[k]=true;
+    if(k==='arrowleft'||k==='a') press('left');
+    else if(k==='arrowright'||k==='d') press('right');
+    else if(k===' '||k==='z'||k==='enter'||k==='x') press('swing');
+  });
+  window.addEventListener('keyup', e=>{ keys[e.key.toLowerCase()]=false; });
+
+  // tap / click: left third = move left, right third = move right, center = swing
+  cv.addEventListener('pointerdown', e=>{
+    const r=cv.getBoundingClientRect();
+    const x=(e.clientX-r.left)/r.width;
+    if(state!=='PITCH'){ press('swing'); return; }
+    if(x<0.33) press('left'); else if(x>0.66) press('right'); else press('swing');
+  });
+
+  // ── swing resolution ──────────────────────────────────────────────
+  function doSwing(){
+    if(game.swung) return;
+    game.swung=true; game.swingT=game.ball.t/game.ball.dur;  // 0..1+ at swing
+    beep(440,0.05,'square',0.05);
+
+    const b=game.ball;
+    const timing = Math.abs(b.t/b.dur - 1.0);   // 0 = perfect (ball at plate)
+    const laneOff = Math.abs(game.racket - b.lane);
+
+    let res=null;
+    if(laneOff===0 && timing<=0.18){
+      // clean contact — quality by timing
+      if(timing<0.025){
+        // golden window: full circuit if center lane, else HR
+        res = (b.lane===1 && timing<0.012) ? SCORE.HOME : SCORE.HR;
+      } else if(timing<0.06){
+        res = SCORE.THIRD;
+      } else if(timing<0.10){
+        res = SCORE.SECOND;
+      } else {
+        res = SCORE.FIRST;
+      }
+    } else if(laneOff===1 && timing<=0.14){
+      // edge of the racket — bloop into open territory
+      res = (timing<0.08) ? SCORE.NML : SCORE.FIRST;
+    } else {
+      // whiff — ball gets past you toward the Gate
+      res = null;
+    }
+    applyResult(res);
+  }
+
+  function applyResult(res){
+    state='RESULT'; game.resultTimer=72;
+    if(!res){ res = SCORE.GATE; }
+    game.result=res;
+
+    if(res===SCORE.GATE){
+      game.defScore += res.pts; game.outs++;
+      game.shake=10; beep(110,0.35,'sawtooth',0.07); beep(80,0.4,'square',0.05);
+    } else {
+      game.score += res.pts;
+      // launch the hit ball into the field for the result animation
+      game.resultBall = {x:LANE_X[game.ball.lane], y:PLATE_Y, vx:(Math.random()-0.5)*3, vy:-4.4, gone:false, res};
+      // base lights + runner logic
+      if(res===SCORE.HOME){ chord([523,659,784,1047],0.12); game.baseLit=[false,false,false]; game.runners=0; }
+      else if(res===SCORE.HR){ chord([523,784,1047],0.10); game.baseLit=[false,false,false]; game.runners=0; }
+      else {
+        const adv = res===SCORE.THIRD?3 : res===SCORE.SECOND?2 : 1; // NML/FIRST=1
+        lightBases(adv); chord([440,587],0.08);
+      }
+      game.baseFlash=14;
+    }
+  }
+
+  function lightBases(adv){
+    // simple runner advance: move existing runners + batter around the diamond
+    let on=[...game.baseLit];
+    // batter starts moving; shift everyone by adv
+    const occ=[true, on[0], on[1], on[2]]; // index0 = batter at home
+    const next=[false,false,false]; let scored=0;
+    for(let pos=3;pos>=0;pos--){
+      if(occ[pos]){
+        const np=pos+adv;
+        if(np>=4){ scored++; }
+        else next[np-1]=true;
+      }
+    }
+    game.baseLit=next;
+    if(scored>0){ game.score += scored*SCORE.HOME.pts; beep(1047,0.2,'square',0.08); }
+  }
+
+  function nextAfterResult(){
+    if(game.outs>=game.maxOuts){ state='OVER'; chord([392,330,262,196],0.18); return; }
+    newPitch();
+  }
+
+  // ── update ────────────────────────────────────────────────────────
+  function update(){
+    game.t++;
+    if(game.shake>0) game.shake--;
+    if(game.baseFlash>0) game.baseFlash--;
+
+    if(state==='PITCH'){
+      game.ball.t++;
+      const b=game.ball;
+      if(!game.swung && b.t/b.dur >= 1.14){
+        // ball reached the gate untouched
+        applyResult(null);
+      }
+    }
+    if(state==='RESULT'){
+      if(game.resultTimer>0) game.resultTimer--;
+      const rb=game.resultBall;
+      if(rb && !rb.gone){
+        rb.x+=rb.vx; rb.y+=rb.vy; rb.vy+=0.14;
+        if(rb.y>H+10||rb.x<-10||rb.x>W+10) rb.gone=true;
+      }
+    }
+  }
+
+  // ── drawing helpers ───────────────────────────────────────────────
+  function px(x,y,w,h,col){ g.fillStyle=col; g.fillRect(x|0,y|0,w|0,h|0); }
+  let fontReady=false;
+  function text(str,x,y,col,size=8,align='left'){
+    g.fillStyle=col; g.font=size+"px 'Press Start 2P', monospace"; g.textAlign=align; g.textBaseline='top';
+    g.fillText(str,x,y);
+  }
+
+  function drawField(){
+    // sky
+    px(0,0,W,72,C.sky1);
+    px(0,40,W,32,C.sky2);
+    // clouds (static blocky)
+    px(36,18,22,5,C.cloud); px(40,14,12,5,C.cloud);
+    px(180,26,26,5,C.cloud); px(186,22,14,5,C.cloud);
+    // crowd dots in the stands
+    for(let i=0;i<60;i++){
+      const cx=(i*53%W), cy=8+((i*37)%26);
+      px(cx,cy,2,2, i%3===0?C.gold : i%3===1?C.blue:C.red);
+    }
+    // outfield wall
+    px(0,68,W,6,C.dark); px(0,68,W,2,C.gold);
+    // grass
+    px(0,72,W,H-72,C.grass1);
+    // mowed stripes
+    for(let i=0;i<6;i++){ px(0,80+i*22,W,11,C.grass2); }
+    // diamond (perspective): infield dirt as rotated square
+    drawDiamond();
+  }
+
+  function drawDiamond(){
+    // home at bottom-center-ish, expanding up = the diamond seen in perspective
+    const homeX=128, homeY=PLATE_Y, topY=92, w=120;
+    // dirt infield (trapezoid)
+    g.fillStyle=C.dirtDk;
+    g.beginPath();
+    g.moveTo(homeX, homeY+6);
+    g.lineTo(homeX-w/2, (homeY+topY)/2);
+    g.lineTo(homeX, topY-6);
+    g.lineTo(homeX+w/2, (homeY+topY)/2);
+    g.closePath(); g.fill();
+    g.fillStyle=C.dirt;
+    g.beginPath();
+    g.moveTo(homeX, homeY+2);
+    g.lineTo(homeX-w/2+6, (homeY+topY)/2);
+    g.lineTo(homeX, topY-2);
+    g.lineTo(homeX+w/2-6, (homeY+topY)/2);
+    g.closePath(); g.fill();
+
+    // base positions
+    const second={x:homeX,y:topY+4};
+    const third ={x:homeX-w/2+8,y:(homeY+topY)/2};
+    const first ={x:homeX+w/2-8,y:(homeY+topY)/2};
+    // base paths (lines)
+    g.strokeStyle=C.line; g.lineWidth=1;
+    g.beginPath();
+    g.moveTo(homeX,homeY); g.lineTo(first.x,first.y);
+    g.lineTo(second.x,second.y); g.lineTo(third.x,third.y);
+    g.closePath(); g.stroke();
+
+    // bases
+    drawBase(first.x,first.y, game.baseLit[0]);
+    drawBase(second.x,second.y, game.baseLit[1]);
+    drawBase(third.x,third.y, game.baseLit[2]);
+    // home plate
+    px(homeX-3,homeY-2,7,5,C.line);
+
+    // pitcher's mound + pitcher
+    px(homeX-7,(homeY+topY)/2+4,14,6,C.dirtDk);
+    drawPitcher(homeX, (homeY+topY)/2 - 2);
+  }
+
+  function drawBase(x,y,lit){
+    const f = game.baseFlash>0 && lit;
+    px(x-3,y-3,6,6, lit?(f?C.wht:C.gold):C.line);
+    if(lit){ px(x-1,y-1,2,2,C.red); }
+  }
+
+  function drawPitcher(x,y){
+    // small far-away figure
+    px(x-3,y-8,6,7,C.blue);     // body
+    px(x-2,y-12,4,4,C.skin);    // head
+    px(x-4,y-7,2,4,C.skin);     // arm
+    px(x-3,y-1,2,4,C.dark); px(x+1,y-1,2,4,C.dark); // legs
+  }
+
+  function drawGate(){
+    // Castle Gate net behind home plate (bottom of screen)
+    const gx=84, gw=88, gy=GATE_Y, gh=14;
+    px(gx-2,gy-2,gw+4,gh+4,C.netDk);     // frame
+    px(gx,gy,gw,gh,C.dark);
+    // mesh
+    g.strokeStyle=C.net; g.lineWidth=1;
+    for(let i=gx+4;i<gx+gw;i+=6){ g.beginPath(); g.moveTo(i+0.5,gy+1); g.lineTo(i+0.5,gy+gh-1); g.stroke(); }
+    for(let j=gy+3;j<gy+gh;j+=4){ g.beginPath(); g.moveTo(gx+1,j+0.5); g.lineTo(gx+gw-1,j+0.5); g.stroke(); }
+    // posts
+    px(gx-2,gy-2,2,gh+4,C.gold); px(gx+gw,gy-2,2,gh+4,C.gold);
+  }
+
+  function drawBatter(){
+    const lx=LANE_X[game.racket];
+    const by=PLATE_Y;
+    // shadow
+    g.fillStyle=C.shadow; g.beginPath(); g.ellipse(lx,by+10,9,3,0,0,7); g.fill();
+    // batter body (alt colors = mixed league flavor)
+    const jersey = (game.outs%2===0)?C.cream:C.red;
+    px(lx-4,by-4,8,10,jersey);    // torso
+    px(lx-3,by-11,6,6,C.skin);    // head
+    px(lx-4,by+6,3,5,C.dark); px(lx+1,by+6,3,5,C.dark); // legs
+    // RACKET — swings when active
+    const swinging = state==='PITCH' && game.swung || (state==='RESULT' && game.resultTimer>60);
+    drawRacket(lx, by-2, swinging);
+  }
+
+  function drawRacket(x,y,swing){
+    const ang = swing ? -0.9 : 0.5;
+    g.save(); g.translate(x+5,y); g.rotate(ang);
+    px(0,-1,9,2,C.dark);           // handle
+    g.strokeStyle=C.gold; g.lineWidth=1.5;
+    g.beginPath(); g.ellipse(12,0,5,7,0,0,7); g.stroke();   // head
+    g.strokeStyle='rgba(216,216,232,0.6)';
+    g.beginPath(); g.moveTo(12,-6); g.lineTo(12,6); g.moveTo(8,0); g.lineTo(16,0); g.stroke();
+    g.restore();
+  }
+
+  function drawBall(){
+    if(state==='PITCH'){
+      const b=game.ball;
+      const p=Math.min(b.t/b.dur,1.16);
+      const y=PITCH_Y0 + (b.target-PITCH_Y0)*p;
+      const x=LANE_X[b.lane] + b.curve*p*8;
+      const r=1.5 + p*2.6;
+      g.fillStyle=C.shadow; g.beginPath(); g.ellipse(x,Math.min(y+r+2,PLATE_Y+10),r,r*0.4,0,0,7); g.fill();
+      g.fillStyle=C.ball; g.beginPath(); g.arc(x,y,r,0,7); g.fill();
+      g.fillStyle=C.ballSh; g.beginPath(); g.arc(x+r*0.3,y+r*0.3,r*0.5,0,7); g.fill();
+      // lane target reticle at plate
+      g.strokeStyle='rgba(201,168,76,0.5)'; g.lineWidth=1;
+      g.strokeRect(LANE_X[b.lane]-6,PLATE_Y-6,12,12);
+    }
+    if(state==='RESULT' && game.resultBall && !game.resultBall.gone){
+      const rb=game.resultBall;
+      g.fillStyle=C.ball; g.beginPath(); g.arc(rb.x,rb.y,2.5,0,7); g.fill();
+    }
+  }
+
+  function drawHUD(){
+    // top scoreboard bar
+    px(0,0,W,0,C.dark);
+    g.fillStyle='rgba(8,9,14,0.82)'; g.fillRect(0,0,W,16);
+    px(0,16,W,1,C.gold);
+    text('YOU',5,5,C.gold,8);
+    text(String(game.score),40,5,C.cream,8);
+    text('DEF',150,5,C.red,8);
+    text(String(game.defScore),182,5,C.cream,8);
+    // outs as pips
+    text('OUT',5,H-12,C.muted='rgba(240,232,208,0.6)',8);
+    for(let i=0;i<game.maxOuts;i++){
+      px(40+i*7,H-11, 5,5, i<game.outs?C.red:'#333');
+    }
+  }
+
+  function drawResultBanner(){
+    if(state!=='RESULT'||!game.result) return;
+    const r=game.result;
+    const a = game.resultTimer>0 ? 1 : 0.85;
+    g.fillStyle='rgba(8,9,14,'+(0.55*a)+')'; g.fillRect(0,96,W,40);
+    px(0,96,W,1,r.col); px(0,136,W,1,r.col);
+    text(r.label,128,104,r.col,9,'center');
+    const sign = (r===SCORE.GATE?'+':'+');
+    text(sign+r.pts+(r===SCORE.GATE?' DEF':' PTS'),128,120,C.cream,8,'center');
+    if(game.resultTimer<=0){
+      const blink = (Math.floor(game.t/16)%2===0);
+      if(blink) text('▶ TAP / SPACE',128,146,C.gold,7,'center');
+    }
+  }
+
+  function drawTitle(){
+    drawField(); drawGate();
+    g.fillStyle='rgba(8,9,14,0.72)'; g.fillRect(0,0,W,H);
+    text('CASTLE BALL II',128,52,C.gold,13,'center');
+    text('GATE  DEFENSE',128,72,C.cream,8,'center');
+    px(40,88,W-80,1,C.gold);
+    text('Defend the Castle Gate.',128,100,C.cream,7,'center');
+    text('Swing your racket to',128,114,C.cream,7,'center');
+    text('smash into the diamond.',128,128,C.cream,7,'center');
+    if(Math.floor(game.t/18)%2===0) text('▶ PRESS SPACE / TAP',128,156,C.gold,8,'center');
+    text("9 outs · don't feed the Gate",128,182,'rgba(240,232,208,0.5)',6,'center');
+  }
+
+  function drawOver(){
+    drawField(); drawGate(); drawBatter();
+    g.fillStyle='rgba(8,9,14,0.8)'; g.fillRect(0,0,W,H);
+    text('GAME OVER',128,46,C.red,13,'center');
+    px(48,66,W-96,1,C.gold);
+    text('YOUR SCORE',128,80,C.gold,8,'center');
+    text(String(game.score),128,96,C.cream,12,'center');
+    text('GATE GOALS',128,120,C.red,7,'center');
+    text(String(game.defScore),128,132,C.cream,8,'center');
+    const win = game.score>game.defScore;
+    text(win?'★ CASTLE HELD ★':'GATE BREACHED',128,152,win?C.gold:C.red,8,'center');
+    if(Math.floor(game.t/18)%2===0) text('▶ PLAY AGAIN',128,176,C.gold,8,'center');
+  }
+
+  // ── main render ───────────────────────────────────────────────────
+  function render(){
+    g.save();
+    if(game.shake>0){ g.translate((Math.random()-0.5)*game.shake, (Math.random()-0.5)*game.shake); }
+    g.clearRect(-10,-10,W+20,H+20);
+
+    if(state==='TITLE'){ drawTitle(); g.restore(); return; }
+    if(state==='OVER'){ drawOver(); g.restore(); return; }
+
+    drawField();
+    drawGate();
+    drawBall();
+    drawBatter();
+    drawHUD();
+    drawResultBanner();
+    g.restore();
+  }
+
+  // ── loop ──────────────────────────────────────────────────────────
+  function loop(){ update(); render(); requestAnimationFrame(loop); }
+
+  // wait for pixel font, then go
+  if(document.fonts && document.fonts.ready){
+    document.fonts.load("8px 'Press Start 2P'").then(()=>{fontReady=true;});
+  }
+  resetGame();
+  loop();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+# Never commit copyrighted ROMs or emulator binaries
+*.rom
+*.sfc
+*.smc
+*.zip
+*.exe
+snes9x*/
+*Nolan*Ryan*
+roms/
+emulator/
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
