@@ -111,8 +111,11 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; }
   function chord(fs,d){ fs.forEach((f,i)=>setTimeout(()=>beep(f,d),i*60)); }
 
   // ── BAT-cam geometry ──────────────────────────────────────────────
-  const MOUND={x:256,y:200}, PLATE={x:256,y:408}, CONTACT_Y=388, NET_Y=440;
-  const LANES=[204,230,256,282,308];      // 5 across the plate; 1..3 = strike zone
+  const MOUND={x:256,y:200}, PLATE={x:256,y:408}, CONTACT_Y=400, NET_Y=442;
+  // ONE wide rectangular batter's box (the whole red area is hittable)
+  const BOX_X0=110, BOX_X1=392, BOX_Y0=372, BOX_H=64;
+  const BOX_C=(BOX_X0+BOX_X1)/2, BOX_HW=(BOX_X1-BOX_X0)/2;
+  const RACKET_MIN=BOX_X0+14, RACKET_MAX=BOX_X1-14;
 
   // ── FIELD-cam geometry — true 90° baseball fan, scaled to FILL the frame ─
   const FHOME={x:256,y:424}, FRAD=404;                 // home near the bottom; big fence radius
@@ -133,7 +136,7 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; }
   const game = {
     runs:0, points:0, defScore:0,
     balls:0, strikes:0, outs:0, inning:1, maxInnings:3,
-    racket:2, swung:false,
+    racketX:BOX_C, swung:false,
     pitch:null, ptimer:0,
     bases:[false,false,false],
     result:null, resultTimer:0, lastView:'bat',
@@ -149,10 +152,11 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; }
 
   function newPitch(){
     game.swung=false; game.result=null; game.field=null;
-    const strike = Math.random()<0.62;
-    const lane = strike ? 1+((Math.random()*3)|0) : (Math.random()<0.5?0:4);
-    // slower, readable pitch; the HUMAN releases it (tap space)
-    game.pitch = { lane, strike, t:0, dur:(100 - Math.min(game.outs+(game.inning-1)*3,6)*4)|0, curve:(Math.random()-0.5)*0.8, released:false };
+    const strike = Math.random()<0.78;
+    // pitcher can target ANY x: inside the box = hittable strike, outside = ball
+    const tx = strike ? (RACKET_MIN+6 + Math.random()*(RACKET_MAX-RACKET_MIN-12))
+                      : (Math.random()<0.5 ? BOX_X0-16-Math.random()*14 : BOX_X1+16+Math.random()*14);
+    game.pitch = { tx, strike, t:0, dur:(100 - Math.min(game.outs+(game.inning-1)*3,6)*4)|0, released:false };
     game.ptimer=0; state='PITCH';
   }
 
@@ -164,14 +168,14 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; }
     if(state==='OVER'){ startPlay(); return; }
     if(state==='RESULT'){ if(game.resultTimer<=0) afterResult(); return; }
     if(state==='PITCH'){
-      if(code==='left') game.racket=Math.max(0,game.racket-1);
-      else if(code==='right') game.racket=Math.min(4,game.racket+1);
+      if(code==='left') game.racketX=Math.max(RACKET_MIN, game.racketX-26);    // tap/touch nudge
+      else if(code==='right') game.racketX=Math.min(RACKET_MAX, game.racketX+26);
       else if(code==='swing'){
         if(!game.pitch.released){ game.pitch.released=true; game.ptimer=14; beep(190,0.08,'square',0.05); } // human throws
         else doSwing();
       }
     }
-    // FIELD movement handled continuously in update()
+    // held-key racket glide + FIELD movement handled continuously in update()
   }
   window.addEventListener('keydown',e=>{ const k=e.key.toLowerCase();
     if(['arrowleft','arrowright','arrowup','arrowdown',' '].includes(k)) e.preventDefault();
@@ -190,10 +194,12 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; }
   function doSwing(){
     if(game.swung || state!=='PITCH' || !game.pitch.released) return;
     game.swung=true; beep(430,0.05,'square',0.05);
-    const p=game.pitch, timing=Math.abs(p.t/p.dur-1.0), laneOff=Math.abs(game.racket-p.lane);
-    // generous contact window so the ball is actually hittable
-    if(timing<=0.26 && laneOff<=2){ startField(timing,laneOff,p.lane); }   // contact -> in play
-    else { addStrike('swing'); }                                           // whiff
+    const p=game.pitch, timing=Math.abs(p.t/p.dur-1.0), offX=Math.abs(game.racketX-p.tx);
+    // hit anything in the box you line the racket up with, with decent timing
+    if(timing<=0.26 && offX<=34){
+      const dir=Math.max(-1,Math.min(1,(p.tx-BOX_C)/BOX_HW));   // where in the box -> pull/centre/oppo
+      startField(timing, offX/34, dir);
+    } else { addStrike('swing'); }                              // whiff
   }
   function addBall(){ game.balls++; beep(300,0.05); if(game.balls>=4){ flash('WALK'); walk(); } else queueNext(); }
   function addStrike(kind){
@@ -218,10 +224,10 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; }
   function basePos(b){ return b===1?FB1 : b===2?FB2 : b===3?FB3 : FHOME; }
   function baseName(b){ return b===1?'1ST' : b===2?'2ND' : b===3?'3RD' : 'HOME'; }
 
-  function startField(timing,laneOff,lane){
+  function startField(timing,missFrac,dir){
     game.lastView='field'; beep(540,0.06,'square',0.07);
-    const dir=(lane-2)/2 + (Math.random()-0.5)*0.18;            // pull/center/oppo
-    let q = 1 - Math.min(timing/0.26,1); q *= (1-laneOff*0.16);  // contact quality 0..1
+    dir = Math.max(-1,Math.min(1, dir + (Math.random()-0.5)*0.16));   // pull/center/oppo
+    let q = 1 - Math.min(timing/0.26,1); q *= (1-missFrac*0.5);        // contact quality 0..1
     let depth = 0.10 + q*0.92 + (Math.random()-0.5)*0.10;
     depth = Math.max(0.05, Math.min(1.02, depth));
     const over = depth>0.95;
@@ -293,6 +299,9 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; }
     if(game.ptimer>0) game.ptimer--;
 
     if(state==='PITCH'){
+      const rs=5.5;     // glide the racket continuously across the box while keys held
+      if(keys['arrowleft']||keys['a']) game.racketX=Math.max(RACKET_MIN, game.racketX-rs);
+      if(keys['arrowright']||keys['d']) game.racketX=Math.min(RACKET_MAX, game.racketX+rs);
       const p=game.pitch;
       if(p.released && game.ptimer<=0) p.t++;     // ball only flies once released
       if(p.released && !game.swung && p.t/p.dur>=1.12){ // pitch done, batter took it
@@ -457,15 +466,15 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; }
   }
 
   function drawBoxesAndPlate(){
-    // small rectangular batter's boxes (chalk outline only — no brown squares)
-    g.strokeStyle=C.line; g.lineWidth=2;
-    g.strokeRect(188,378,46,56); g.strokeRect(278,378,46,56);
-    // home plate
+    // ONE wide rectangular batter's box — the whole area is the live zone
+    g.fillStyle='rgba(176,122,66,0.18)'; g.fillRect(BOX_X0,BOX_Y0,BOX_X1-BOX_X0,BOX_H);
+    g.strokeStyle=C.line; g.lineWidth=2; g.strokeRect(BOX_X0,BOX_Y0,BOX_X1-BOX_X0,BOX_H);
+    // home plate (centre of the box)
     g.fillStyle=C.line; g.beginPath(); g.moveTo(PLATE.x,PLATE.y+10); g.lineTo(PLATE.x-9,PLATE.y+3); g.lineTo(PLATE.x-9,PLATE.y-5); g.lineTo(PLATE.x+9,PLATE.y-5); g.lineTo(PLATE.x+9,PLATE.y+3); g.closePath(); g.fill();
   }
 
   function drawBatter(){
-    const bx=210,by=388;
+    const bx=game.racketX, by=400;     // slides across the box to meet the ball
     g.save(); g.translate(bx,by); g.lineJoin='round';
     g.fillStyle='rgba(0,0,0,0.3)'; g.beginPath(); g.ellipse(0,24,17,5,0,0,7); g.fill();
     g.fillStyle=shade(C.homePant,0.96); rr(-10,10,7,20,3); g.fill(); rr(3,10,7,20,3); g.fill();   // stance legs
@@ -480,7 +489,7 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; }
     drawRacket(bx,by-6);
   }
   function drawRacket(bx,by){
-    const lx=LANES[game.racket], swing=game.swung;
+    const lx=game.racketX, swing=game.swung;
     g.save();
     if(swing && state!=='FIELD'){ g.translate(lx,CONTACT_Y); g.rotate(-0.5); } else { g.translate(bx+6,by-14); g.rotate(0.6); }
     g.strokeStyle='#6a4a2a'; g.lineWidth=4; g.beginPath(); g.moveTo(0,0); g.lineTo(16,-2); g.stroke();       // handle
@@ -499,13 +508,13 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; }
     g.fillStyle=shade('#8f8f9c',1.2); g.beginPath(); g.arc(-3,-18,3,0,7); g.fill();
     g.strokeStyle='rgba(0,0,0,0.4)'; g.lineWidth=1; for(let i=-7;i<=7;i+=3){ g.beginPath(); g.moveTo(i,-23); g.lineTo(i,-9); g.stroke(); } // mask bars
     g.restore();
-    if(state==='PITCH'){ g.fillStyle='#7a5230'; g.beginPath(); g.arc(LANES[game.racket]+18,CONTACT_Y,7,0,7); g.fill(); g.strokeStyle='rgba(0,0,0,0.3)'; g.lineWidth=1; g.stroke(); } // mitt target
+    if(state==='PITCH'){ const mx=game.pitch&&game.pitch.released?game.pitch.tx:BOX_C; g.fillStyle='#7a5230'; g.beginPath(); g.arc(mx,CONTACT_Y,7,0,7); g.fill(); g.strokeStyle='rgba(0,0,0,0.3)'; g.lineWidth=1; g.stroke(); } // catcher's mitt tracks the pitch
   }
   function drawPitch(){
     if(state!=='PITCH') return; const p=game.pitch;
     const relX=MOUND.x+6, relY=MOUND.y-16;   // pitcher's throwing hand
-    // strike-zone reticle on the plate
-    g.strokeStyle='rgba(201,168,76,0.6)'; g.lineWidth=2; g.strokeRect(LANES[game.racket]-12,CONTACT_Y-16,24,32);
+    // racket sweet-spot reticle, glides with the racket
+    g.strokeStyle='rgba(201,168,76,0.7)'; g.lineWidth=2; g.strokeRect(game.racketX-16,CONTACT_Y-16,32,32);
     if(!p.released){
       g.fillStyle=C.ball; g.beginPath(); g.arc(relX,relY,4,0,7); g.fill();   // ball in the hand
       if(Math.floor(game.t/16)%2===0) ptxt('▶ TAP SPACE TO PITCH',256,300,C.gold,12,'center');
@@ -516,7 +525,7 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; }
     let y;
     if(pr<=1) y=relY+(CONTACT_Y-relY)*pr;
     else      y=CONTACT_Y+(NET_Y-CONTACT_Y)*Math.min((pr-1)/0.2,1);
-    const x=relX+(LANES[p.lane]-relX)*Math.min(pr,1)+p.curve*pr*8, r=2.2+Math.min(pr,1)*5;
+    const x=relX+(p.tx-relX)*Math.min(pr,1), r=2.2+Math.min(pr,1)*5;
     g.fillStyle=C.shadow; g.beginPath(); g.ellipse(x,Math.min(y+r+4,NET_Y),r,r*0.4,0,0,7); g.fill();
     const bg=g.createRadialGradient(x-r*0.3,y-r*0.3,1,x,y,r); bg.addColorStop(0,C.ball); bg.addColorStop(1,C.ballSh);
     g.fillStyle=bg; g.beginPath(); g.arc(x,y,r,0,7); g.fill();
