@@ -65,7 +65,7 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; }
 <div class="help">
   <div><h4>PITCH &amp; SWING</h4><p><span class="key">SPACE</span> / tap once to <b>throw the pitch</b>, again to <b>swing</b>. Time it as the ball reaches the plate.</p></div>
   <div><h4>BAT · AIM</h4><p><span class="key">◂</span> <span class="key">▸</span> move the racket across the wide box. Center 3 lanes are strikes.</p></div>
-  <div><h4>FIELD · UNISON</h4><p><span class="key">◂</span><span class="key">▸</span><span class="key">▴</span><span class="key">▾</span> shift the <b>whole defense together</b>. Cover the ball to record the out.</p></div>
+  <div><h4>FIELD</h4><p><span class="key">◂</span><span class="key">▸</span><span class="key">▴</span><span class="key">▾</span> move the <b>nearest fielder</b> (auto-selected). Catch a fly for an out, or field it and beat the runner to 1st.</p></div>
   <div><h4>RULES</h4><p>Balls · Strikes · Outs, 3 innings. CPU pitches at the net. 4 balls walk · 3 K's feed the Gate.</p></div>
 </div>
 
@@ -114,9 +114,9 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; }
   const MOUND={x:256,y:200}, PLATE={x:256,y:408}, CONTACT_Y=388, NET_Y=440;
   const LANES=[204,230,256,282,308];      // 5 across the plate; 1..3 = strike zone
 
-  // ── FIELD-cam geometry (formation; user shifts ALL in unison) ─────
-  const FHOME={x:256,y:418};
-  const FORM = {  // base fielding formation
+  // ── FIELD-cam geometry ────────────────────────────────────────────
+  const FHOME={x:256,y:418}, FB1={x:344,y:344}, FB2={x:256,y:280}, FB3={x:168,y:344};
+  const FORM = {  // base fielding formation (9 players)
     P:{x:256,y:330}, C:{x:256,y:408},
     B1:{x:338,y:338}, B2:{x:298,y:300}, SS:{x:214,y:300}, B3:{x:174,y:338},
     LF:{x:150,y:198}, CF:{x:256,y:166}, RF:{x:362,y:198}
@@ -183,10 +183,11 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; }
 
   // ── batting resolution ────────────────────────────────────────────
   function doSwing(){
-    if(game.swung || state!=='PITCH') return;
+    if(game.swung || state!=='PITCH' || !game.pitch.released) return;
     game.swung=true; beep(430,0.05,'square',0.05);
     const p=game.pitch, timing=Math.abs(p.t/p.dur-1.0), laneOff=Math.abs(game.racket-p.lane);
-    if(laneOff<=1 && timing<=0.16){ startField(timing,laneOff,p.lane); }   // contact -> in play
+    // generous contact window so the ball is actually hittable
+    if(timing<=0.26 && laneOff<=2){ startField(timing,laneOff,p.lane); }   // contact -> in play
     else { addStrike('swing'); }                                           // whiff
   }
   function addBall(){ game.balls++; beep(300,0.05); if(game.balls>=4){ flash('WALK'); walk(); } else queueNext(); }
@@ -207,54 +208,37 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; }
     let b=game.bases; if(b[0]){ if(b[1]){ if(b[2]){ score(1); } b[2]=true; } b[1]=true; } b[0]=true; game.baseFlash=16;
   }
 
-  // ── field phase: hit in play, user moves defense in unison ────────
+  // ── field phase: ball in play, control the nearest fielder ────────
   function startField(timing,laneOff,lane){
     game.lastView='field'; beep(540,0.06,'square',0.07);
-    // direction from lane (pull/center/oppo) + power(depth) from timing
-    const dir=(lane-2)/2;                       // -1..1
-    let depth; // 0 shallow .. 1 deep(over wall)
-    if(timing<0.03 && laneOff===0) depth=0.95+Math.random()*0.1;
-    else if(timing<0.07) depth=0.7+Math.random()*0.2;
-    else if(timing<0.11) depth=0.45+Math.random()*0.2;
-    else depth=0.18+Math.random()*0.2;
-    const wallY=150, infY=320;
-    const ty = infY - depth*(infY-wallY) - (depth>0.92? 80:0);
-    const tx = 256 + dir*150*(0.5+depth*0.7) + (Math.random()-0.5)*30;
-    const over = depth>0.92;
-    const peak = 80 + depth*150;        // deeper hits loft higher
+    const dir=(lane-2)/2 + (Math.random()-0.5)*0.18;            // pull/center/oppo
+    let q = 1 - Math.min(timing/0.26,1); q *= (1-laneOff*0.16);  // contact quality 0..1
+    let depth = 0.10 + q*0.92 + (Math.random()-0.5)*0.10;
+    depth = Math.max(0.05, Math.min(1.02, depth));
+    const over = depth>0.95;
+    const wallY=150, infMin=300;
+    const ty = Math.max(72, infMin - depth*(infMin-wallY));
+    const tx = Math.max(60, Math.min(452, 256 + dir*210*(0.45+depth*0.6) + (Math.random()-0.5)*24));
+    const peak = 14 + depth*250;            // grounders ride low, fly balls loft high
+    const fly = peak>95;
+    const fielders = FORM_KEYS.map(k=>({x:FORM[k].x, y:FORM[k].y}));
     game.field = {
-      t:0, land:(120 + depth*80)|0,     // slow, real flight time (~2-3s)
-      ball:{gx:FHOME.x, gy:FHOME.y, h:0, x:FHOME.x, y:FHOME.y, sx:FHOME.x, sy:FHOME.y, tx, ty, over, peak},
-      off:{x:0,y:0}, depth, dir, resolved:false
+      phase:'air', t:0, land:(95 + depth*95)|0,
+      ball:{sx:FHOME.x, sy:FHOME.y, tx, ty, gx:FHOME.x, gy:FHOME.y, h:0, x:FHOME.x, y:FHOME.y, peak, over, fly},
+      fielders, ctrl:0, depth,
+      runner:{prog:0, dur:175},             // batter sprinting to first
+      thrown:null
     };
     state='FIELD';
   }
 
-  function fielderPositions(){
-    const o=game.field.off;
-    return FORM_KEYS.map(k=>({x:FORM[k].x+o.x, y:FORM[k].y+o.y}));
-  }
+  function startThrow(fc){ const f=game.field; f.phase='throw'; beep(520,0.05,'square',0.05);
+    f.thrown={sx:fc.x, sy:fc.y, x:fc.x, y:fc.y, t:0, dur:24}; }
+  function flyout(){ endOut('OUT! CAUGHT'); beep(340,0.14); }
+  function groundout(){ endOut('OUT AT 1ST'); beep(300,0.14); }
+  function endOut(label){ game.lastView='field'; recordOut(); newBatter(); banner({label,col:C.cream,pts:0}); }
+  function safeHit(){ const f=game.field; const h = f.depth>0.70?HITS.TRIPLE : f.depth>0.46?HITS.DOUBLE : HITS.SINGLE; finishHit(h); }
 
-  function resolveField(){
-    const f=game.field; f.resolved=true;
-    const b=f.ball;
-    if(b.over){ // home run, uncatchable
-      finishHit(HITS.HR); return;
-    }
-    // nearest fielder to landing
-    const fs=fielderPositions(); let best=1e9;
-    for(const fl of fs){ const d=Math.hypot(fl.x-b.tx, fl.y-b.ty); if(d<best) best=d; }
-    const CATCH=46;
-    if(best<CATCH){ // out recorded
-      game.lastView='field'; game.result={label:'OUT! FIELDED',col:C.cream,pts:0,out:true};
-      beep(330,0.12); recordOut(); banner(); return;
-    }
-    // landed safely -> base hit by depth
-    let h;
-    if(f.depth>0.72) h=HITS.TRIPLE; else if(f.depth>0.5) h=HITS.DOUBLE;
-    else if(f.depth>0.36) h=HITS.NML; else h=HITS.SINGLE;
-    finishHit(h);
-  }
   function finishHit(h){
     game.lastView='field'; game.points+=h.pts;
     const adv = h===HITS.HR?4 : h===HITS.TRIPLE?3 : h===HITS.DOUBLE?2 : 1;
@@ -294,21 +278,40 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; }
       }
     }
     else if(state==='FIELD'){
-      const f=game.field; f.t++;
-      // unison defense control (held keys) — whole formation moves together
-      const sp=3.0;
-      if(keys['arrowleft']||keys['a']) f.off.x-=sp;
-      if(keys['arrowright']||keys['d']) f.off.x+=sp;
-      if(keys['arrowup']||keys['w']) f.off.y-=sp;
-      if(keys['arrowdown']||keys['s']) f.off.y+=sp;
-      f.off.x=Math.max(-120,Math.min(120,f.off.x)); f.off.y=Math.max(-70,Math.min(90,f.off.y));
-      // ball flight: travels along the field while lofting UP then back DOWN
-      const b=f.ball, pr=Math.min(f.t/f.land,1);
-      b.gx=b.sx+(b.tx-b.sx)*pr;            // ground position (shadow)
-      b.gy=b.sy+(b.ty-b.sy)*pr;
-      b.h = b.over ? (f.t/f.land)*b.peak*1.7 : Math.sin(pr*Math.PI)*b.peak;  // height
-      b.x=b.gx; b.y=b.gy-b.h;
-      if(f.t>=f.land && !f.resolved) resolveField();
+      const f=game.field, b=f.ball; f.t++;
+      // batter sprints to first
+      if(f.runner.prog<1) f.runner.prog=Math.min(1,f.runner.prog+1/f.runner.dur);
+      // the fielder NEAREST the ball is auto-controlled (no manual selection)
+      let best=1e9; f.fielders.forEach((fl,i)=>{ const d=Math.hypot(fl.x-b.gx,fl.y-b.gy); if(d<best){best=d; f.ctrl=i;} });
+      const fc=f.fielders[f.ctrl], sp=3.4;
+      if(f.phase!=='throw'){
+        if(keys['arrowleft']||keys['a']) fc.x-=sp;
+        if(keys['arrowright']||keys['d']) fc.x+=sp;
+        if(keys['arrowup']||keys['w']) fc.y-=sp;
+        if(keys['arrowdown']||keys['s']) fc.y+=sp;
+        fc.x=Math.max(20,Math.min(492,fc.x)); fc.y=Math.max(70,Math.min(412,fc.y));
+      }
+      if(f.phase==='air'){
+        const pr=Math.min(f.t/f.land,1);
+        b.gx=b.sx+(b.tx-b.sx)*pr; b.gy=b.sy+(b.ty-b.sy)*pr;
+        b.h = b.over ? (f.t/f.land)*b.peak*1.7 : Math.sin(pr*Math.PI)*b.peak;
+        b.x=b.gx; b.y=b.gy-b.h;
+        const dctrl=Math.hypot(fc.x-b.gx, fc.y-b.gy);
+        if(b.over && f.t>=f.land){ finishHit(HITS.HR); }                  // home run
+        else if(b.fly && !b.over && pr>0.5 && b.h<70 && dctrl<28){ flyout(); }   // caught in the air
+        else if(!b.fly && dctrl<20){ startThrow(fc); }                    // fielded a grounder
+        else if(f.t>=f.land){ b.h=0; b.y=b.gy; f.phase='grounded'; }
+      }
+      else if(f.phase==='grounded'){
+        const dctrl=Math.hypot(fc.x-b.gx, fc.y-b.gy);
+        if(dctrl<20) startThrow(fc);                  // got to the ball -> throw to first
+        else if(f.runner.prog>=1) safeHit();          // runner beat it out -> base hit
+      }
+      else if(f.phase==='throw'){
+        const tw=f.thrown; tw.t++; const pr=Math.min(tw.t/tw.dur,1);
+        tw.x=tw.sx+(FB1.x-tw.sx)*pr; tw.y=tw.sy+(FB1.y-tw.sy)*pr;
+        if(pr>=1){ if(f.runner.prog<1) groundout(); else safeHit(); }     // throw vs runner
+      }
     }
     else if(state==='RESULT'){
       if(game.resultTimer>0) game.resultTimer--;
@@ -352,18 +355,18 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; }
     g.fillStyle='#1d2733'; rr(196,2,120,52,6); g.fill(); g.strokeStyle='#0a0f15'; g.lineWidth=3; g.stroke();
     g.fillStyle='#0d3a22'; rr(204,9,104,30,3); g.fill();
     ptxt('CASTLE BALL',256,24,C.gold,9,'center');
-    // wall + ad strip
-    const wg=g.createLinearGradient(0,72,0,90); wg.addColorStop(0,C.wallHi); wg.addColorStop(1,C.wall);
-    g.fillStyle=wg; g.fillRect(0,72,W,18); g.fillStyle=C.gold; g.fillRect(0,72,W,2);
-    txt('· CASTLE BALL LEAGUE · HOLD THE CASTLE ·',256,82,'rgba(242,239,224,0.5)',10,'center');
-    // field gradient
-    const fg=g.createLinearGradient(0,90,0,H); fg.addColorStop(0,C.grassLo); fg.addColorStop(1,C.grassHi);
-    g.fillStyle=fg; g.fillRect(0,90,W,H-90);
-    // mowed arcs
+    // grass fills the whole field
+    const fg=g.createLinearGradient(0,72,0,H); fg.addColorStop(0,C.grassLo); fg.addColorStop(1,C.grassHi);
+    g.fillStyle=fg; g.fillRect(0,72,W,H-72);
+    // mowed arcs (concentric, centered beyond home)
     g.strokeStyle='rgba(255,255,255,0.05)'; g.lineWidth=10;
-    for(let r=120;r<460;r+=46){ g.beginPath(); g.arc(256,470,r,Math.PI*1.15,Math.PI*1.85); g.stroke(); }
-    // foul lines
-    g.strokeStyle=C.line; g.lineWidth=3; g.beginPath(); g.moveTo(PLATE.x,PLATE.y-4); g.lineTo(64,90); g.moveTo(PLATE.x,PLATE.y-4); g.lineTo(448,90); g.stroke();
+    for(let r=120;r<360;r+=40){ g.beginPath(); g.arc(256,470,r,Math.PI*1.30,Math.PI*1.70); g.stroke(); }
+    // ARCHED outfield fence sweeping across the top
+    g.strokeStyle=C.wall; g.lineWidth=11; g.beginPath(); g.arc(256,470,375,Math.PI*1.285,Math.PI*1.715); g.stroke();
+    g.strokeStyle=C.gold; g.lineWidth=2;  g.beginPath(); g.arc(256,470,369,Math.PI*1.285,Math.PI*1.715); g.stroke();
+    g.fillStyle=C.gold; g.fillRect(20,150,3,34); g.fillRect(489,150,3,34);   // foul poles
+    // foul lines run WIDE out to the poles (1st/3rd sit far to the sides along these)
+    g.strokeStyle=C.line; g.lineWidth=3; g.beginPath(); g.moveTo(PLATE.x,PLATE.y-6); g.lineTo(22,184); g.moveTo(PLATE.x,PLATE.y-6); g.lineTo(490,184); g.stroke();
 
     drawBatInfield();
     drawPitcher(MOUND.x,MOUND.y-6, game.ptimer>0 && state==='PITCH');
@@ -378,15 +381,19 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; }
   }
 
   function drawBatInfield(){
-    const home={x:256,y:372}, b2={x:256,y:176}, b1={x:392,y:262}, b3={x:120,y:262};
-    g.fillStyle=C.dirtLo; g.beginPath(); g.moveTo(home.x,home.y); g.lineTo(b1.x,b1.y); g.lineTo(b2.x,b2.y); g.lineTo(b3.x,b3.y); g.closePath(); g.fill();
-    g.fillStyle=C.grassMow; g.beginPath(); g.moveTo(home.x,home.y-18); g.lineTo(b1.x-22,b1.y); g.lineTo(b2.x,b2.y+18); g.lineTo(b3.x+22,b3.y); g.closePath(); g.fill();
-    g.strokeStyle=C.line; g.lineWidth=2; g.beginPath(); g.moveTo(home.x,home.y); g.lineTo(b1.x,b1.y); g.lineTo(b2.x,b2.y); g.lineTo(b3.x,b3.y); g.closePath(); g.stroke();
+    // WIDE diamond — 1st & 3rd pushed far out along the foul lines
+    const home={x:256,y:372}, b2={x:256,y:150}, b1={x:450,y:214}, b3={x:62,y:214};
+    // dirt base paths
+    g.strokeStyle=C.dirt; g.lineWidth=11; g.lineJoin='round';
+    g.beginPath(); g.moveTo(home.x,home.y); g.lineTo(b1.x,b1.y); g.lineTo(b2.x,b2.y); g.lineTo(b3.x,b3.y); g.closePath(); g.stroke();
+    // chalk lines
+    g.strokeStyle=C.line; g.lineWidth=2;
+    g.beginPath(); g.moveTo(home.x,home.y); g.lineTo(b1.x,b1.y); g.lineTo(b2.x,b2.y); g.lineTo(b3.x,b3.y); g.closePath(); g.stroke();
     drawBase(b1.x,b1.y,game.bases[0]); drawBase(b2.x,b2.y,game.bases[1]); drawBase(b3.x,b3.y,game.bases[2]);
-    // mound dirt
-    const mg=g.createRadialGradient(MOUND.x,MOUND.y+4,4,MOUND.x,MOUND.y+4,72); mg.addColorStop(0,C.dirtHi); mg.addColorStop(1,C.dirtLo);
-    g.fillStyle=mg; g.beginPath(); g.ellipse(MOUND.x,MOUND.y+8,72,34,0,0,7); g.fill();
-    g.fillStyle=C.line; g.fillRect(MOUND.x-14,MOUND.y+6,28,5);
+    // pitcher's mound (the source of the pitch)
+    const mg=g.createRadialGradient(MOUND.x,MOUND.y+4,4,MOUND.x,MOUND.y+4,46); mg.addColorStop(0,C.dirtHi); mg.addColorStop(1,C.dirtLo);
+    g.fillStyle=mg; g.beginPath(); g.ellipse(MOUND.x,MOUND.y+6,46,23,0,0,7); g.fill();
+    g.fillStyle=C.line; g.fillRect(MOUND.x-12,MOUND.y+4,24,4);
   }
   function drawBase(x,y,lit){ const f=game.baseFlash>0&&lit;
     g.save(); g.translate(x,y); g.rotate(Math.PI/4); g.fillStyle=lit?(f?C.wht:C.gold):C.line; g.fillRect(-6,-6,12,12);
@@ -439,15 +446,20 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; }
   }
   function drawPitch(){
     if(state!=='PITCH') return; const p=game.pitch;
+    const relX=MOUND.x+6, relY=MOUND.y-16;   // pitcher's throwing hand
     // strike-zone reticle on the plate
     g.strokeStyle='rgba(201,168,76,0.6)'; g.lineWidth=2; g.strokeRect(LANES[game.racket]-12,CONTACT_Y-16,24,32);
     if(!p.released){
-      g.fillStyle=C.ball; g.beginPath(); g.arc(MOUND.x+10,MOUND.y-15,4,0,7); g.fill();   // ball in hand
+      g.fillStyle=C.ball; g.beginPath(); g.arc(relX,relY,4,0,7); g.fill();   // ball in the hand
       if(Math.floor(game.t/16)%2===0) ptxt('▶ TAP SPACE TO PITCH',256,300,C.gold,12,'center');
       return;
     }
-    const pr=Math.min(p.t/p.dur,1.14);
-    const y=MOUND.y+(NET_Y-MOUND.y)*pr, x=LANES[p.lane]+p.curve*pr*10, r=2.5+pr*5;
+    const pr=Math.min(p.t/p.dur,1.2);
+    // ball leaves the hand and reaches the PLATE at pr=1.0, then carries to the net
+    let y;
+    if(pr<=1) y=relY+(CONTACT_Y-relY)*pr;
+    else      y=CONTACT_Y+(NET_Y-CONTACT_Y)*Math.min((pr-1)/0.2,1);
+    const x=relX+(LANES[p.lane]-relX)*Math.min(pr,1)+p.curve*pr*8, r=2.2+Math.min(pr,1)*5;
     g.fillStyle=C.shadow; g.beginPath(); g.ellipse(x,Math.min(y+r+4,NET_Y),r,r*0.4,0,0,7); g.fill();
     const bg=g.createRadialGradient(x-r*0.3,y-r*0.3,1,x,y,r); bg.addColorStop(0,C.ball); bg.addColorStop(1,C.ballSh);
     g.fillStyle=bg; g.beginPath(); g.arc(x,y,r,0,7); g.fill();
@@ -506,7 +518,7 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; }
     // foul lines
     g.strokeStyle=C.line; g.lineWidth=3; g.beginPath(); g.moveTo(FHOME.x,FHOME.y); g.lineTo(70,96); g.moveTo(FHOME.x,FHOME.y); g.lineTo(442,96); g.stroke();
     // infield
-    const h=FHOME,b1={x:344,y:344},b2={x:256,y:280},b3={x:168,y:344};
+    const h=FHOME,b1=FB1,b2=FB2,b3=FB3;
     g.fillStyle=C.dirtLo; g.beginPath(); g.moveTo(h.x,h.y); g.lineTo(b1.x,b1.y); g.lineTo(b2.x,b2.y); g.lineTo(b3.x,b3.y); g.closePath(); g.fill();
     g.fillStyle=C.grassMow; g.beginPath(); g.moveTo(h.x,h.y-22); g.lineTo(b1.x-26,b1.y); g.lineTo(b2.x,b2.y+22); g.lineTo(b3.x+26,b3.y); g.closePath(); g.fill();
     g.strokeStyle=C.line; g.lineWidth=2; g.beginPath(); g.moveTo(h.x,h.y); g.lineTo(b1.x,b1.y); g.lineTo(b2.x,b2.y); g.lineTo(b3.x,b3.y); g.closePath(); g.stroke();
@@ -514,23 +526,31 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; }
     g.fillStyle=C.line; g.fillRect(h.x-5,h.y-3,10,7);
 
     if(game.field){
-      const fs=fielderPositions();
-      fs.forEach((fl,i)=>player(fl.x,fl.y,C.awayJ,C.awayPant,1,i));
-      // landing marker (where it will come down) — drawn first, under the ball
-      const b=game.field.ball;
-      if(!game.field.resolved && !b.over){ g.strokeStyle='rgba(255,255,255,0.55)'; g.lineWidth=2;
+      const f=game.field, b=f.ball;
+      // landing marker (where it will come down)
+      if(f.phase==='air' && !b.over){ g.strokeStyle='rgba(255,255,255,0.55)'; g.lineWidth=2;
         g.beginPath(); g.arc(b.tx,b.ty,9,0,7); g.stroke();
         g.beginPath(); g.moveTo(b.tx-13,b.ty); g.lineTo(b.tx+13,b.ty); g.moveTo(b.tx,b.ty-13); g.lineTo(b.tx,b.ty+13); g.stroke(); }
-      // ground shadow tracks the landing spot; tightens as the ball descends
+      // batter-runner sprinting to first (drawn under fielders)
+      const rx=FHOME.x+(FB1.x-FHOME.x)*f.runner.prog, ry=FHOME.y+(FB1.y-FHOME.y)*f.runner.prog;
+      player(rx,ry,C.homeJ,C.homePant,1,99);
+      // 9 fielders; the controlled (nearest) one gets a marker
+      f.fielders.forEach((fl,i)=>{
+        player(fl.x,fl.y,C.awayJ,C.awayPant,1,i);
+        if(i===f.ctrl && f.phase!=='throw'){ g.strokeStyle=C.yellow; g.lineWidth=2; g.beginPath(); g.arc(fl.x,fl.y-4,16,0,7); g.stroke();
+          ptxt('▼',fl.x,fl.y-30,C.yellow,9,'center'); }
+      });
+      // ground shadow + lofted ball
       const sh=Math.max(7-Math.min(b.h/45,4.5),2.5);
       g.fillStyle='rgba(0,0,0,0.32)'; g.beginPath(); g.ellipse(b.gx,b.gy,sh,sh*0.42,0,0,7); g.fill();
-      // the lofted ball
       if(!(b.over && b.y<-14)){
         const bg=g.createRadialGradient(b.x-2,b.y-2,1,b.x,b.y,6); bg.addColorStop(0,C.ball); bg.addColorStop(1,C.ballSh);
         g.fillStyle=bg; g.beginPath(); g.arc(b.x,b.y,6,0,7); g.fill();
       }
+      // the throw to first
+      if(f.phase==='throw'){ const tw=f.thrown; g.fillStyle=C.ball; g.beginPath(); g.arc(tw.x,tw.y,4,0,7); g.fill(); }
     }
-    panel(8,40,210,42); txt('DEFENSE — MOVE ALL IN UNISON ◂▸▴▾',16,61,C.cream,11,'left');
+    panel(8,40,250,42); txt('FIELD: ◂▸▴▾ MOVES NEAREST FIELDER',16,61,C.cream,10,'left');
   }
 
   // ── banner + screens ──────────────────────────────────────────────
