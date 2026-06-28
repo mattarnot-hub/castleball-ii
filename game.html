@@ -114,17 +114,17 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; }
   const MOUND={x:256,y:200}, PLATE={x:256,y:408}, CONTACT_Y=388, NET_Y=440;
   const LANES=[204,230,256,282,308];      // 5 across the plate; 1..3 = strike zone
 
-  // ── FIELD-cam geometry — true baseball field: 90° fan centered on home ─
-  const FHOME={x:256,y:400}, FRAD=328;                 // outfield fence = arc of radius FRAD
+  // ── FIELD-cam geometry — true 90° baseball fan, scaled to FILL the frame ─
+  const FHOME={x:256,y:424}, FRAD=404;                 // home near the bottom; big fence radius
   const FA_L=Math.PI*1.25, FA_R=Math.PI*1.75;          // foul-line angles (45° each side of straight up)
-  const FPOLE_L={x:FHOME.x+FRAD*Math.cos(FA_L), y:FHOME.y+FRAD*Math.sin(FA_L)};
+  const FPOLE_L={x:FHOME.x+FRAD*Math.cos(FA_L), y:FHOME.y+FRAD*Math.sin(FA_L)};   // off the sides -> fills frame
   const FPOLE_R={x:FHOME.x+FRAD*Math.cos(FA_R), y:FHOME.y+FRAD*Math.sin(FA_R)};
-  const FMOUND={x:256,y:325};                          // centre of the infield
-  const FB2={x:256,y:250}, FB1={x:331,y:325}, FB3={x:181,y:325};  // 2nd / 1st / 3rd (1st & 3rd on the foul lines)
+  const FMOUND={x:256,y:337};                          // centre of the infield
+  const FB2={x:256,y:249}, FB1={x:343,y:337}, FB3={x:169,y:337};  // 2nd / 1st / 3rd (1st & 3rd on the foul lines)
   const FORM = {  // base fielding formation (9 players)
-    P:{x:256,y:325}, C:{x:256,y:388},
-    B1:{x:332,y:322}, B2:{x:300,y:284}, SS:{x:212,y:284}, B3:{x:180,y:322},
-    LF:{x:130,y:178}, CF:{x:256,y:132}, RF:{x:382,y:178}
+    P:{x:256,y:337}, C:{x:256,y:408},
+    B1:{x:344,y:334}, B2:{x:300,y:300}, SS:{x:212,y:300}, B3:{x:168,y:334},
+    LF:{x:120,y:172}, CF:{x:256,y:118}, RF:{x:392,y:172}
   };
   const FORM_KEYS=Object.keys(FORM);
 
