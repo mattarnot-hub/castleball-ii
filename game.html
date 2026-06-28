@@ -214,6 +214,10 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; }
   }
 
   // ── field phase: ball in play, control the nearest fielder ────────
+  // base index: 0=home, 1=1st, 2=2nd, 3=3rd, 4=home(score)
+  function basePos(b){ return b===1?FB1 : b===2?FB2 : b===3?FB3 : FHOME; }
+  function baseName(b){ return b===1?'1ST' : b===2?'2ND' : b===3?'3RD' : 'HOME'; }
+
   function startField(timing,laneOff,lane){
     game.lastView='field'; beep(540,0.06,'square',0.07);
     const dir=(lane-2)/2 + (Math.random()-0.5)*0.18;            // pull/center/oppo
@@ -221,43 +225,54 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; }
     let depth = 0.10 + q*0.92 + (Math.random()-0.5)*0.10;
     depth = Math.max(0.05, Math.min(1.02, depth));
     const over = depth>0.95;
-    // landing as polar from home, staying inside the 90° fan
-    const ang = Math.PI*1.5 + dir*Math.PI*0.22;            // straight-up ± ~40°
-    const rad = 70 + depth*(FRAD-90);                       // infield (shallow) -> wall (deep)
-    const tx = FHOME.x + rad*Math.cos(ang);
-    const ty = FHOME.y + rad*Math.sin(ang);
+    const ang = Math.PI*1.5 + dir*Math.PI*0.22;            // inside the 90° fan
+    const rad = 70 + depth*(FRAD-90);
+    const tx = FHOME.x + rad*Math.cos(ang), ty = FHOME.y + rad*Math.sin(ang);
     const peak = 14 + depth*250;            // grounders ride low, fly balls loft high
     const fly = peak>95;
     const fielders = FORM_KEYS.map(k=>({x:FORM[k].x, y:FORM[k].y}));
+    // ── force-advancing runners (treat every hit as a single) ──
+    const pre = game.bases.slice();         // [1st,2nd,3rd] occupied
+    const R=[]; const mk=(from,to,bat)=>R.push({from,to,prog:0,isBatter:!!bat,out:false});
+    mk(0,1,true);                                  // batter -> 1st (always forced)
+    if(pre[0]) mk(1,2);                             // 1st -> 2nd (forced by batter)
+    if(pre[1]) mk(2, pre[0]?3:2);                   // 2nd -> 3rd if forced, else holds
+    if(pre[2]) mk(3, (pre[0]&&pre[1])?4:3);         // 3rd -> home if forced (loaded), else holds
+    // lead force base = the most advanced runner that must move
+    let lead=-1, leadBase=-1; R.forEach((r,i)=>{ if(r.to>r.from && r.to>leadBase){ leadBase=r.to; lead=i; } });
     game.field = {
-      phase:'air', t:0, land:(95 + depth*95)|0,
-      ball:{sx:FHOME.x, sy:FHOME.y, tx, ty, gx:FHOME.x, gy:FHOME.y, h:0, x:FHOME.x, y:FHOME.y, peak, over, fly},
-      fielders, ctrl:0, depth,
-      runner:{prog:0, dur:175},             // batter sprinting to first
-      thrown:null
+      phase:'air', t:0, land:(95 + depth*95)|0, RUN:150,
+      ball:{sx:FHOME.x, sy:FHOME.y, tx, ty, gx:FHOME.x, gy:FHOME.y, h:0, x:FHOME.x, y:FHOME.y, peak, over, fly, landed:false},
+      fielders, ctrl:0, depth, runners:R, lead, leadBase, throw:null
     };
     state='FIELD';
   }
 
-  function startThrow(fc){ const f=game.field; f.phase='throw'; beep(520,0.05,'square',0.05);
-    f.thrown={sx:fc.x, sy:fc.y, x:fc.x, y:fc.y, t:0, dur:24}; }
-  function flyout(){ endOut('OUT! CAUGHT'); beep(340,0.14); }
-  function groundout(){ endOut('OUT AT 1ST'); beep(300,0.14); }
-  function endOut(label){ game.lastView='field'; recordOut(); newBatter(); banner({label,col:C.cream,pts:0}); }
-  function safeHit(){ const f=game.field; const h = f.depth>0.70?HITS.TRIPLE : f.depth>0.46?HITS.DOUBLE : HITS.SINGLE; finishHit(h); }
+  function fieldBall(fc){ const f=game.field; beep(480,0.05,'square',0.05);
+    if(f.lead<0){ safePlay(); return; }
+    const tp=basePos(f.leadBase), d=Math.hypot(tp.x-fc.x,tp.y-fc.y);
+    f.throw={sx:fc.x, sy:fc.y, x:fc.x, y:fc.y, t:0, dur:Math.max(10,(d/13)|0)}; f.phase='throw';
+  }
+  function evalThrow(){ const f=game.field, lr=f.runners[f.lead];
+    if(lr && lr.prog<1){ lr.out=true; resolvePlay('OUT AT '+baseName(f.leadBase), true); }   // throw beat the runner
+    else resolvePlay(null,false);                                                            // runner safe
+  }
+  function allRunnersDone(){ return game.field.runners.every(r=> r.to===r.from || r.prog>=1); }
+  function safePlay(){ resolvePlay(null,false); }
 
-  function finishHit(h){
-    game.lastView='field'; game.points+=h.pts;
-    const adv = h===HITS.HR?4 : h===HITS.TRIPLE?3 : h===HITS.DOUBLE?2 : 1;
-    advance(adv); newBatter();
-    chord(h===HITS.HR?[523,659,784,1047]:[440,587],0.1); game.baseFlash=18;
-    banner({label:h.label, col:h===HITS.HR?C.gold:C.cream, pts:h.pts});
+  function resolvePlay(outLabel, wasOut){
+    const f=game.field; let runs=0; const nb=[false,false,false];
+    f.runners.forEach(r=>{ if(r.out) return; if(r.to===4) runs++; else if(r.to>=1&&r.to<=3) nb[r.to-1]=true; });
+    game.bases=nb; game.baseFlash=18;
+    if(runs>0) score(runs);
+    if(wasOut){ recordOut(); beep(300,0.14); newBatter(); banner({label:outLabel, col:C.cream, pts:0}); }
+    else { game.points+=10; chord([440,587],0.09); newBatter(); banner({label: runs>0?'SAFE — RUN SCORES!':'BASE HIT', col: runs>0?C.gold:C.cream, pts:10}); }
   }
-  function advance(adv){
-    const occ=[true,game.bases[0],game.bases[1],game.bases[2]]; const nx=[false,false,false]; let sc=0;
-    for(let pos=3;pos>=0;pos--){ if(occ[pos]){ const np=pos+adv; if(np>=4) sc++; else nx[np-1]=true; } }
-    game.bases=nx; if(sc>0) score(sc);
-  }
+  function flyout(){ game.lastView='field'; recordOut(); newBatter(); beep(340,0.14);  // runners hold / tag up — bases unchanged
+    banner({label:'OUT! CAUGHT', col:C.cream, pts:0}); }
+  function homeRun(){ let runs=1; game.bases.forEach(o=>{ if(o) runs++; }); game.bases=[false,false,false];
+    game.points+=100; score(runs); newBatter(); game.baseFlash=18; banner({label:'HOME RUN', col:C.gold, pts:100}); }
+
   function score(n){ game.runs+=n; game.points+=n*RUN_PTS; beep(1000,0.2,'square',0.08); }
 
   // ── outs / innings ────────────────────────────────────────────────
@@ -286,8 +301,8 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; }
     }
     else if(state==='FIELD'){
       const f=game.field, b=f.ball; f.t++;
-      // batter sprints to first
-      if(f.runner.prog<1) f.runner.prog=Math.min(1,f.runner.prog+1/f.runner.dur);
+      // every forced runner advances toward its base
+      f.runners.forEach(r=>{ if(r.to>r.from && !r.out && r.prog<1) r.prog=Math.min(1, r.prog+1/f.RUN); });
       // the fielder NEAREST the ball is auto-controlled (no manual selection)
       let best=1e9; f.fielders.forEach((fl,i)=>{ const d=Math.hypot(fl.x-b.gx,fl.y-b.gy); if(d<best){best=d; f.ctrl=i;} });
       const fc=f.fielders[f.ctrl], sp=3.4;
@@ -304,20 +319,20 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; }
         b.h = b.over ? (f.t/f.land)*b.peak*1.7 : Math.sin(pr*Math.PI)*b.peak;
         b.x=b.gx; b.y=b.gy-b.h;
         const dctrl=Math.hypot(fc.x-b.gx, fc.y-b.gy);
-        if(b.over && f.t>=f.land){ finishHit(HITS.HR); }                  // home run
-        else if(b.fly && !b.over && pr>0.5 && b.h<70 && dctrl<28){ flyout(); }   // caught in the air
-        else if(!b.fly && dctrl<20){ startThrow(fc); }                    // fielded a grounder
-        else if(f.t>=f.land){ b.h=0; b.y=b.gy; f.phase='grounded'; }
+        if(b.over && f.t>=f.land){ homeRun(); }                                   // home run
+        else if(b.fly && !b.over && pr>0.62 && b.h<26 && dctrl<26){ flyout(); }   // CAUGHT — fielder under the descending ball
+        else if(!b.fly && dctrl<20){ fieldBall(fc); }                            // fielded a low grounder
+        else if(f.t>=f.land){ b.h=0; b.y=b.gy; b.landed=true; f.phase='grounded'; } // ball HIT the green, in play
       }
       else if(f.phase==='grounded'){
         const dctrl=Math.hypot(fc.x-b.gx, fc.y-b.gy);
-        if(dctrl<20) startThrow(fc);                  // got to the ball -> throw to first
-        else if(f.runner.prog>=1) safeHit();          // runner beat it out -> base hit
+        if(dctrl<20) fieldBall(fc);                   // reached the ball -> throw to the lead base
+        else if(allRunnersDone()) safePlay();         // nobody got it in time -> all safe
       }
       else if(f.phase==='throw'){
-        const tw=f.thrown; tw.t++; const pr=Math.min(tw.t/tw.dur,1);
-        tw.x=tw.sx+(FB1.x-tw.sx)*pr; tw.y=tw.sy+(FB1.y-tw.sy)*pr;
-        if(pr>=1){ if(f.runner.prog<1) groundout(); else safeHit(); }     // throw vs runner
+        const tw=f.throw, tp=basePos(f.leadBase); tw.t++; const pr=Math.min(tw.t/tw.dur,1);
+        tw.x=tw.sx+(tp.x-tw.sx)*pr; tw.y=tw.sy+(tp.y-tw.sy)*pr;
+        if(pr>=1) evalThrow();                         // throw vs the lead runner
       }
     }
     else if(state==='RESULT'){
@@ -555,9 +570,12 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; }
       if(f.phase==='air' && !b.over){ g.strokeStyle='rgba(255,255,255,0.55)'; g.lineWidth=2;
         g.beginPath(); g.arc(b.tx,b.ty,9,0,7); g.stroke();
         g.beginPath(); g.moveTo(b.tx-13,b.ty); g.lineTo(b.tx+13,b.ty); g.moveTo(b.tx,b.ty-13); g.lineTo(b.tx,b.ty+13); g.stroke(); }
-      // batter-runner sprinting to first (drawn under fielders)
-      const rx=FHOME.x+(FB1.x-FHOME.x)*f.runner.prog, ry=FHOME.y+(FB1.y-FHOME.y)*f.runner.prog;
-      player(rx,ry,C.homeJ,C.homePant,1,99);
+      // target-base highlight (where the throw is going)
+      if(f.leadBase>=1){ const tp=basePos(f.leadBase); g.strokeStyle='rgba(212,69,58,0.8)'; g.lineWidth=2; g.beginPath(); g.arc(tp.x,tp.y,11,0,7); g.stroke(); }
+      // every offensive runner (drawn under fielders)
+      f.runners.forEach(r=>{ if(r.out) return; const a=basePos(r.from), bp=basePos(r.to);
+        const rx=a.x+(bp.x-a.x)*r.prog, ry=a.y+(bp.y-a.y)*r.prog;
+        player(rx,ry,C.homeJ,C.homePant,1, r.isBatter?99:50); });
       // 9 fielders; the controlled (nearest) one gets a marker
       f.fielders.forEach((fl,i)=>{
         player(fl.x,fl.y,C.awayJ,C.awayPant,1,i);
@@ -571,8 +589,8 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; }
         const bg=g.createRadialGradient(b.x-2,b.y-2,1,b.x,b.y,6); bg.addColorStop(0,C.ball); bg.addColorStop(1,C.ballSh);
         g.fillStyle=bg; g.beginPath(); g.arc(b.x,b.y,6,0,7); g.fill();
       }
-      // the throw to first
-      if(f.phase==='throw'){ const tw=f.thrown; g.fillStyle=C.ball; g.beginPath(); g.arc(tw.x,tw.y,4,0,7); g.fill(); }
+      // the throw to the lead base
+      if(f.phase==='throw' && f.throw){ const tw=f.throw; g.fillStyle=C.ball; g.beginPath(); g.arc(tw.x,tw.y,4,0,7); g.fill(); }
     }
     panel(8,40,250,42); txt('FIELD: ◂▸▴▾ MOVES NEAREST FIELDER',16,61,C.cream,10,'left');
   }
