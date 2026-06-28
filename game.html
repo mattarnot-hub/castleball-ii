@@ -5,9 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#08090E">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="description" content="Castle Ball II — a 16-bit Gate Defense arcade game. Defend the Castle Gate with your racket and smash the ball into the diamond.">
+<meta name="description" content="Castle Ball II — a 16-bit Gate Defense arcade game. Bat from behind the plate, then watch the field on contact.">
 <meta property="og:title" content="Castle Ball II — Gate Defense (16-bit)">
-<meta property="og:description" content="A SNES-style arcade simulation of Castle Ball. Time your racket, defend the Gate, run the bases.">
+<meta property="og:description" content="A SNES-style arcade simulation of Castle Ball. Bat behind the catcher, smash it, watch all 9 fielders break.">
 <title>Castle Ball II — Gate Defense</title>
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Bebas+Neue&display=swap" rel="stylesheet">
 <style>
@@ -88,22 +88,23 @@ canvas{
 
 <div class="help">
   <div>
-    <h4>MOVE RACKET</h4>
-    <p><span class="key">◂</span> <span class="key">▸</span> / <span class="key">A</span> <span class="key">D</span><br>Line up with the pitch lane.</p>
+    <h4>AIM (LANE)</h4>
+    <p><span class="key">◂</span> <span class="key">▸</span> / <span class="key">A</span> <span class="key">D</span><br>Slide the racket across the strike zone — inside / middle / outside.</p>
   </div>
   <div>
     <h4>SWING</h4>
-    <p><span class="key">SPACE</span> / <span class="key">Z</span> / tap<br>Time it as the ball reaches the plate.</p>
+    <p><span class="key">SPACE</span> / <span class="key">Z</span> / tap<br>Time it as the pitch reaches the plate.</p>
   </div>
   <div>
-    <h4>GOAL</h4>
-    <p>Match the lane + nail the timing. Whiff and it sails into the Castle Gate — defense scores.</p>
+    <h4>TWO CAMERAS</h4>
+    <p>Bat from <b>behind the catcher</b>. On contact the camera cuts to the <b>full field</b> — all 9 fielders break for the ball.</p>
   </div>
 </div>
 
 <p class="note">
-  An original 16-bit simulation of Castle Ball, styled after SNES sports titles.
-  Not affiliated with any commercial game. &nbsp;·&nbsp; <a href="index.html">Configure the real rules →</a>
+  An original 16-bit simulation of Castle Ball, styled after SNES baseball titles
+  (behind-the-plate batting + full-field fielding). Not affiliated with any commercial game.
+  &nbsp;·&nbsp; <a href="index.html">Configure the real rules →</a>
 </p>
 
 <script>
@@ -116,23 +117,23 @@ canvas{
   // ── 16-bit palette ────────────────────────────────────────────────
   const C = {
     sky1:'#2a3a6b', sky2:'#4a6aa8', cloud:'#cdd9f0',
-    grass1:'#2d7a2d', grass2:'#256325', grassDk:'#1a4a1a',
-    dirt:'#a06a3a', dirtDk:'#7a5535', line:'#e8e4d0',
+    grass1:'#2d7a2d', grass2:'#256325', grass3:'#327f32', grassDk:'#1a4a1a',
+    dirt:'#a06a3a', dirtDk:'#7a5535', dirtLt:'#b8824a', line:'#e8e4d0',
     gold:'#C9A84C', cream:'#F0E8D0', dark:'#08090E',
-    red:'#C0392B', blue:'#4A9EDD', skin:'#e8b48a',
+    red:'#C0392B', blue:'#4A9EDD', navy:'#23314f', skin:'#e8b48a',
     net:'#d8d8e8', netDk:'#8a8aa0', ball:'#f4f4f4', ballSh:'#b8b8b8',
-    shadow:'rgba(0,0,0,0.28)', wht:'#ffffff', blk:'#101018'
+    wall:'#184a2a', wallTop:'#0e3a1e', shadow:'rgba(0,0,0,0.30)', wht:'#ffffff'
   };
 
   // ── scoring (mirrors the Castle Ball rules) ───────────────────────
   const SCORE = {
-    HOME:{label:'SCORE AT HOME!', pts:1000, col:C.gold},
-    HR:{label:'HOME RUN', pts:100, col:C.gold},
-    THIRD:{label:'TRIPLE — 3RD', pts:80, col:C.cream},
-    SECOND:{label:'DOUBLE — 2ND', pts:40, col:C.cream},
-    NML:{label:"NO MAN'S LAND", pts:50, col:C.blue},
-    FIRST:{label:'SINGLE — 1ST', pts:10, col:C.cream},
-    GATE:{label:'GATE GOAL · DEFENSE', pts:50, col:C.red},
+    HOME:{label:'SCORE AT HOME!', pts:1000, col:C.gold, kind:'hr'},
+    HR:{label:'HOME RUN', pts:100, col:C.gold, kind:'hr'},
+    THIRD:{label:'TRIPLE — 3RD', pts:80, col:C.cream, kind:'deep'},
+    SECOND:{label:'DOUBLE — 2ND', pts:40, col:C.cream, kind:'gap'},
+    NML:{label:"NO MAN'S LAND", pts:50, col:C.blue, kind:'nml'},
+    FIRST:{label:'SINGLE — 1ST', pts:10, col:C.cream, kind:'infield'},
+    GATE:{label:'GATE GOAL · DEFENSE', pts:50, col:C.red, kind:'gate'},
   };
 
   // ── audio (tiny square-wave blips) ────────────────────────────────
@@ -149,151 +150,146 @@ canvas{
   }
   function chord(freqs,dur){ freqs.forEach((f,i)=>setTimeout(()=>beep(f,dur),i*55)); }
 
-  // ── lanes (in / middle / out) ─────────────────────────────────────
-  const LANE_X = [96, 128, 160];
-  const PLATE_Y = 176;      // where contact should happen
-  const PITCH_Y0 = 64;      // pitcher release height
-  const GATE_Y  = 206;
+  // ── BATTING-CAM geometry (behind the catcher) ─────────────────────
+  const MOUND   = {x:128, y:104};   // pitcher releases here (far)
+  const ZONE_Y  = 150;              // strike-zone / ideal contact height
+  const GATE_Y  = 204;              // the Castle Gate net (foreground)
+  const LANE_X  = [112, 128, 144];  // inside / middle / outside
+
+  // ── FIELD-CAM geometry (wide aerial after contact) ────────────────
+  const FHOME = {x:128, y:198};
+  const POS = {  // 9 standard fielding positions
+    P:{x:128,y:152}, C:{x:128,y:192},
+    B1:{x:168,y:156}, B2:{x:150,y:130}, SS:{x:106,y:130}, B3:{x:88,y:156},
+    LF:{x:74,y:90},  CF:{x:128,y:70},  RF:{x:182,y:90}
+  };
 
   // ── game state ────────────────────────────────────────────────────
-  let state = 'TITLE';   // TITLE | PITCH | RESULT | OVER
+  let state = 'TITLE';   // TITLE | PITCH | FIELD | RESULT | OVER
   const game = {
     score:0, defScore:0, outs:0, maxOuts:9,
     racket:1, swung:false, swingT:0,
-    ball:null,            // {lane, t, dur, curve}
-    result:null, resultTimer:0, resultBall:null,
+    ball:null,
+    result:null, resultTimer:0, lastView:'bat',
+    field:null,
     baseLit:[false,false,false], baseFlash:0,
-    runners:0, shake:0, t:0
+    shake:0, t:0, windup:0
   };
 
   function resetGame(){
     game.score=0; game.defScore=0; game.outs=0;
-    game.racket=1; game.runners=0;
-    game.baseLit=[false,false,false];
+    game.racket=1; game.baseLit=[false,false,false];
     state='TITLE';
+  }
+  function resetForPlay(){
+    game.score=0; game.defScore=0; game.outs=0;
+    game.baseLit=[false,false,false]; game.racket=1;
   }
 
   function newPitch(){
-    game.swung=false; game.swingT=0; game.result=null; game.resultBall=null;
-    const speedup = 1 - Math.min(game.outs,8)*0.045;   // faster as outs climb
+    game.swung=false; game.swingT=0; game.result=null; game.field=null;
+    const speedup = 1 - Math.min(game.outs,8)*0.045;
     game.ball = {
-      lane: (Math.random()*3)|0,
-      t: 0,
-      dur: (78*speedup)|0,            // frames to reach plate
-      curve: (Math.random()-0.5)*0.9, // slight horizontal drift
-      target: PLATE_Y + 36            // continues to the gate if missed
+      lane:(Math.random()*3)|0, t:0, dur:(80*speedup)|0,
+      curve:(Math.random()-0.5)*0.9
     };
+    game.windup=24;
     state='PITCH';
     beep(180,0.08,'square',0.05);
   }
 
   // ── input ─────────────────────────────────────────────────────────
   const keys={};
-  function press(code){
+  function action(code){
     if(!actx){ try{actx=new(window.AudioContext||window.webkitAudioContext)();}catch(e){} }
     if(state==='TITLE'){ resetForPlay(); newPitch(); return; }
     if(state==='OVER'){ resetGame(); resetForPlay(); newPitch(); return; }
-    if(state==='RESULT' && game.resultTimer<=0){ nextAfterResult(); return; }
+    if(state==='RESULT'){ if(game.resultTimer<=0) nextAfterResult(); return; }
+    if(state==='FIELD'){ return; } // ball's in play, watch it
     if(state==='PITCH'){
       if(code==='left'){ game.racket=Math.max(0,game.racket-1); beep(330,0.04); }
       else if(code==='right'){ game.racket=Math.min(2,game.racket+1); beep(330,0.04); }
       else if(code==='swing'){ doSwing(); }
     }
   }
-  function resetForPlay(){
-    game.score=0; game.defScore=0; game.outs=0; game.runners=0;
-    game.baseLit=[false,false,false]; game.racket=1;
-  }
-
   window.addEventListener('keydown', e=>{
     const k=e.key.toLowerCase();
     if(['arrowleft','arrowright','arrowup','arrowdown',' '].includes(k)) e.preventDefault();
     if(keys[k]) return; keys[k]=true;
-    if(k==='arrowleft'||k==='a') press('left');
-    else if(k==='arrowright'||k==='d') press('right');
-    else if(k===' '||k==='z'||k==='enter'||k==='x') press('swing');
+    if(k==='arrowleft'||k==='a') action('left');
+    else if(k==='arrowright'||k==='d') action('right');
+    else if(k===' '||k==='z'||k==='enter'||k==='x') action('swing');
   });
   window.addEventListener('keyup', e=>{ keys[e.key.toLowerCase()]=false; });
-
-  // tap / click: left third = move left, right third = move right, center = swing
   cv.addEventListener('pointerdown', e=>{
-    const r=cv.getBoundingClientRect();
-    const x=(e.clientX-r.left)/r.width;
-    if(state!=='PITCH'){ press('swing'); return; }
-    if(x<0.33) press('left'); else if(x>0.66) press('right'); else press('swing');
+    const r=cv.getBoundingClientRect(); const x=(e.clientX-r.left)/r.width;
+    if(state!=='PITCH'){ action('swing'); return; }
+    if(x<0.33) action('left'); else if(x>0.66) action('right'); else action('swing');
   });
 
   // ── swing resolution ──────────────────────────────────────────────
   function doSwing(){
     if(game.swung) return;
-    game.swung=true; game.swingT=game.ball.t/game.ball.dur;  // 0..1+ at swing
+    game.swung=true; game.swingT=game.ball.t/game.ball.dur;
     beep(440,0.05,'square',0.05);
-
     const b=game.ball;
-    const timing = Math.abs(b.t/b.dur - 1.0);   // 0 = perfect (ball at plate)
-    const laneOff = Math.abs(game.racket - b.lane);
-
+    const timing=Math.abs(b.t/b.dur - 1.0);
+    const laneOff=Math.abs(game.racket - b.lane);
     let res=null;
     if(laneOff===0 && timing<=0.18){
-      // clean contact — quality by timing
-      if(timing<0.025){
-        // golden window: full circuit if center lane, else HR
-        res = (b.lane===1 && timing<0.012) ? SCORE.HOME : SCORE.HR;
-      } else if(timing<0.06){
-        res = SCORE.THIRD;
-      } else if(timing<0.10){
-        res = SCORE.SECOND;
-      } else {
-        res = SCORE.FIRST;
-      }
+      if(timing<0.025) res=(b.lane===1 && timing<0.012)?SCORE.HOME:SCORE.HR;
+      else if(timing<0.06) res=SCORE.THIRD;
+      else if(timing<0.10) res=SCORE.SECOND;
+      else res=SCORE.FIRST;
     } else if(laneOff===1 && timing<=0.14){
-      // edge of the racket — bloop into open territory
-      res = (timing<0.08) ? SCORE.NML : SCORE.FIRST;
-    } else {
-      // whiff — ball gets past you toward the Gate
-      res = null;
+      res=(timing<0.08)?SCORE.NML:SCORE.FIRST;
     }
-    applyResult(res);
+    if(res) startField(res); else applyGate();
   }
 
-  function applyResult(res){
+  function applyGate(){
+    game.lastView='bat'; game.result=SCORE.GATE;
+    game.defScore+=SCORE.GATE.pts; game.outs++;
+    game.shake=10; beep(110,0.35,'sawtooth',0.07); beep(80,0.4,'square',0.05);
     state='RESULT'; game.resultTimer=72;
-    if(!res){ res = SCORE.GATE; }
-    game.result=res;
+  }
 
-    if(res===SCORE.GATE){
-      game.defScore += res.pts; game.outs++;
-      game.shake=10; beep(110,0.35,'sawtooth',0.07); beep(80,0.4,'square',0.05);
-    } else {
-      game.score += res.pts;
-      // launch the hit ball into the field for the result animation
-      game.resultBall = {x:LANE_X[game.ball.lane], y:PLATE_Y, vx:(Math.random()-0.5)*3, vy:-4.4, gone:false, res};
-      // base lights + runner logic
-      if(res===SCORE.HOME){ chord([523,659,784,1047],0.12); game.baseLit=[false,false,false]; game.runners=0; }
-      else if(res===SCORE.HR){ chord([523,784,1047],0.10); game.baseLit=[false,false,false]; game.runners=0; }
-      else {
-        const adv = res===SCORE.THIRD?3 : res===SCORE.SECOND?2 : 1; // NML/FIRST=1
-        lightBases(adv); chord([440,587],0.08);
-      }
-      game.baseFlash=14;
-    }
+  // ── FIELD camera: launch the hit and send fielders ────────────────
+  function startField(res){
+    game.lastView='field'; game.result=res;
+    beep(520,0.06,'square',0.07); // crack of the racket
+
+    // landing target by outcome
+    let tgt;
+    if(res.kind==='hr')      tgt={x:128+(Math.random()-0.5)*60, y:46, over:true};
+    else if(res.kind==='deep') tgt={x:(Math.random()<0.5?78:178), y:80};
+    else if(res.kind==='gap')  tgt={x:(Math.random()<0.5?100:156), y:96};
+    else if(res.kind==='nml')  tgt={x:128+(Math.random()-0.5)*40, y:116};
+    else                      tgt={x:128+(Math.random()-0.5)*70, y:150}; // infield
+
+    const fielders = Object.values(POS).map(p=>({x:p.x,y:p.y}));
+    game.field = {
+      t:0, dur:84,
+      ball:{x:FHOME.x, y:FHOME.y, sx:FHOME.x, sy:FHOME.y, tx:tgt.x, ty:tgt.y, over:!!tgt.over, gone:false},
+      fielders, tgt
+    };
+    state='FIELD';
+  }
+
+  function finalizeHit(res){
+    game.score += res.pts;
+    if(res===SCORE.HOME || res===SCORE.HR){ chord([523,659,784,1047],0.11); game.baseLit=[false,false,false]; }
+    else { const adv=res===SCORE.THIRD?3:res===SCORE.SECOND?2:1; lightBases(adv); chord([440,587],0.08); }
+    game.baseFlash=16;
+    state='RESULT'; game.resultTimer=72;
   }
 
   function lightBases(adv){
-    // simple runner advance: move existing runners + batter around the diamond
-    let on=[...game.baseLit];
-    // batter starts moving; shift everyone by adv
-    const occ=[true, on[0], on[1], on[2]]; // index0 = batter at home
+    const occ=[true, game.baseLit[0], game.baseLit[1], game.baseLit[2]];
     const next=[false,false,false]; let scored=0;
-    for(let pos=3;pos>=0;pos--){
-      if(occ[pos]){
-        const np=pos+adv;
-        if(np>=4){ scored++; }
-        else next[np-1]=true;
-      }
-    }
+    for(let pos=3;pos>=0;pos--){ if(occ[pos]){ const np=pos+adv; if(np>=4) scored++; else next[np-1]=true; } }
     game.baseLit=next;
-    if(scored>0){ game.score += scored*SCORE.HOME.pts; beep(1047,0.2,'square',0.08); }
+    if(scored>0){ game.score+=scored*SCORE.HOME.pts; beep(1047,0.2,'square',0.08); }
   }
 
   function nextAfterResult(){
@@ -306,253 +302,290 @@ canvas{
     game.t++;
     if(game.shake>0) game.shake--;
     if(game.baseFlash>0) game.baseFlash--;
+    if(game.windup>0) game.windup--;
 
     if(state==='PITCH'){
-      game.ball.t++;
-      const b=game.ball;
-      if(!game.swung && b.t/b.dur >= 1.14){
-        // ball reached the gate untouched
-        applyResult(null);
-      }
+      if(game.windup<=0) game.ball.t++;
+      if(!game.swung && game.ball.t/game.ball.dur>=1.16) applyGate();
     }
-    if(state==='RESULT'){
-      if(game.resultTimer>0) game.resultTimer--;
-      const rb=game.resultBall;
-      if(rb && !rb.gone){
-        rb.x+=rb.vx; rb.y+=rb.vy; rb.vy+=0.14;
-        if(rb.y>H+10||rb.x<-10||rb.x>W+10) rb.gone=true;
+    else if(state==='FIELD'){
+      const f=game.field; f.t++;
+      const b=f.ball, p=Math.min(f.t/40,1); // ball flight 0..1 over ~40 frames
+      // parabolic arc from home to target
+      b.x = b.sx + (b.tx-b.sx)*p;
+      const baseY = b.sy + (b.ty-b.sy)*p;
+      b.y = baseY - Math.sin(p*Math.PI)*26;     // pop-up arc
+      if(b.over && p>=1){ b.y -= (f.t-40)*3; if(b.y<-10) b.gone=true; }
+      // fielders break in unison toward the landing spot
+      const spd=1.7;
+      for(const fl of f.fielders){
+        const dx=f.tgt.x-fl.x, dy=f.tgt.y-fl.y, d=Math.hypot(dx,dy)||1;
+        if(d>spd && !b.over){ fl.x+=dx/d*spd; fl.y+=dy/d*spd; }
+        else if(b.over){ // chase but hold at the wall
+          if(fl.y>60){ fl.x+=dx/d*spd*0.8; fl.y+=dy/d*spd*0.8; }
+        }
       }
+      if(f.t>=f.dur) finalizeHit(game.result);
+    }
+    else if(state==='RESULT'){
+      if(game.resultTimer>0) game.resultTimer--;
     }
   }
 
-  // ── drawing helpers ───────────────────────────────────────────────
+  // ── draw helpers ──────────────────────────────────────────────────
   function px(x,y,w,h,col){ g.fillStyle=col; g.fillRect(x|0,y|0,w|0,h|0); }
-  let fontReady=false;
   function text(str,x,y,col,size=8,align='left'){
     g.fillStyle=col; g.font=size+"px 'Press Start 2P', monospace"; g.textAlign=align; g.textBaseline='top';
     g.fillText(str,x,y);
   }
-
-  function drawField(){
-    // sky
-    px(0,0,W,72,C.sky1);
-    px(0,40,W,32,C.sky2);
-    // clouds (static blocky)
-    px(36,18,22,5,C.cloud); px(40,14,12,5,C.cloud);
-    px(180,26,26,5,C.cloud); px(186,22,14,5,C.cloud);
-    // crowd dots in the stands
-    for(let i=0;i<60;i++){
-      const cx=(i*53%W), cy=8+((i*37)%26);
-      px(cx,cy,2,2, i%3===0?C.gold : i%3===1?C.blue:C.red);
-    }
-    // outfield wall
-    px(0,68,W,6,C.dark); px(0,68,W,2,C.gold);
-    // grass
-    px(0,72,W,H-72,C.grass1);
-    // mowed stripes
-    for(let i=0;i<6;i++){ px(0,80+i*22,W,11,C.grass2); }
-    // diamond (perspective): infield dirt as rotated square
-    drawDiamond();
+  function crowd(y0,y1){
+    for(let i=0;i<70;i++){ const cx=(i*53%W), cy=y0+((i*37)%(y1-y0));
+      px(cx,cy,2,2, i%3===0?C.gold:i%3===1?C.blue:C.red); }
   }
 
-  function drawDiamond(){
-    // home at bottom-center-ish, expanding up = the diamond seen in perspective
-    const homeX=128, homeY=PLATE_Y, topY=92, w=120;
-    // dirt infield (trapezoid)
-    g.fillStyle=C.dirtDk;
-    g.beginPath();
-    g.moveTo(homeX, homeY+6);
-    g.lineTo(homeX-w/2, (homeY+topY)/2);
-    g.lineTo(homeX, topY-6);
-    g.lineTo(homeX+w/2, (homeY+topY)/2);
-    g.closePath(); g.fill();
-    g.fillStyle=C.dirt;
-    g.beginPath();
-    g.moveTo(homeX, homeY+2);
-    g.lineTo(homeX-w/2+6, (homeY+topY)/2);
-    g.lineTo(homeX, topY-2);
-    g.lineTo(homeX+w/2-6, (homeY+topY)/2);
-    g.closePath(); g.fill();
+  // ══ BATTING CAMERA (behind the catcher) ═══════════════════════════
+  function drawBatCam(){
+    // sky + stands
+    px(0,0,W,30,C.sky1); px(0,14,W,16,C.sky2); crowd(4,28);
+    // outfield wall
+    px(0,30,W,7,C.wallTop); px(0,30,W,2,C.gold);
+    // outfield grass
+    px(0,37,W,H-37,C.grass1);
+    for(let i=0;i<5;i++) px(0,44+i*16,W,8,C.grass2);
 
-    // base positions
-    const second={x:homeX,y:topY+4};
-    const third ={x:homeX-w/2+8,y:(homeY+topY)/2};
-    const first ={x:homeX+w/2-8,y:(homeY+topY)/2};
-    // base paths (lines)
+    // fair-field wedge (lighter grass) + foul lines from home
+    g.fillStyle=C.grass3;
+    g.beginPath(); g.moveTo(FHOME.x,196); g.lineTo(34,37); g.lineTo(222,37); g.closePath(); g.fill();
     g.strokeStyle=C.line; g.lineWidth=1;
-    g.beginPath();
-    g.moveTo(homeX,homeY); g.lineTo(first.x,first.y);
-    g.lineTo(second.x,second.y); g.lineTo(third.x,third.y);
-    g.closePath(); g.stroke();
+    g.beginPath(); g.moveTo(128,194); g.lineTo(36,38); g.moveTo(128,194); g.lineTo(220,38); g.stroke();
 
+    // infield diamond (perspective): home(128,182) 1B(190,128) 2B(128,92) 3B(66,128)
+    drawBatInfield();
+
+    // pitcher on the mound
+    drawPitcher(MOUND.x, MOUND.y-2, game.windup>0);
+
+    // home plate + batter boxes
+    px(122,178,12,6,C.line);
+    px(96,170,18,22,C.dirtLt); px(142,170,18,22,C.dirtLt);
+
+    // batter (right box) with racket toward the zone
+    drawBatter();
+    // catcher crouched, back to camera
+    drawCatcher();
+
+    // the live pitch
+    drawPitch();
+
+    // Castle Gate net — foreground, we're looking THROUGH it
+    drawGateForeground();
+  }
+
+  function drawBatInfield(){
+    const home={x:128,y:182}, b2={x:128,y:92}, b1={x:190,y:128}, b3={x:66,y:128};
+    g.fillStyle=C.dirtDk;
+    g.beginPath(); g.moveTo(home.x,home.y); g.lineTo(b1.x,b1.y); g.lineTo(b2.x,b2.y); g.lineTo(b3.x,b3.y); g.closePath(); g.fill();
+    g.fillStyle=C.grass2; // grass center of infield
+    g.beginPath(); g.moveTo(home.x,home.y-10); g.lineTo(b1.x-12,b1.y); g.lineTo(b2.x,b2.y+10); g.lineTo(b3.x+12,b3.y); g.closePath(); g.fill();
+    // base path lines
+    g.strokeStyle=C.line; g.lineWidth=1;
+    g.beginPath(); g.moveTo(home.x,home.y); g.lineTo(b1.x,b1.y); g.lineTo(b2.x,b2.y); g.lineTo(b3.x,b3.y); g.closePath(); g.stroke();
     // bases
-    drawBase(first.x,first.y, game.baseLit[0]);
-    drawBase(second.x,second.y, game.baseLit[1]);
-    drawBase(third.x,third.y, game.baseLit[2]);
-    // home plate
-    px(homeX-3,homeY-2,7,5,C.line);
-
-    // pitcher's mound + pitcher
-    px(homeX-7,(homeY+topY)/2+4,14,6,C.dirtDk);
-    drawPitcher(homeX, (homeY+topY)/2 - 2);
+    drawBase(b1.x,b1.y,game.baseLit[0]); drawBase(b2.x,b2.y,game.baseLit[1]); drawBase(b3.x,b3.y,game.baseLit[2]);
+    // mound dirt
+    g.fillStyle=C.dirt; g.beginPath(); g.ellipse(MOUND.x,MOUND.y+6,12,6,0,0,7); g.fill();
   }
 
   function drawBase(x,y,lit){
-    const f = game.baseFlash>0 && lit;
+    const f=game.baseFlash>0&&lit;
     px(x-3,y-3,6,6, lit?(f?C.wht:C.gold):C.line);
-    if(lit){ px(x-1,y-1,2,2,C.red); }
+    if(lit) px(x-1,y-1,2,2,C.red);
   }
 
-  function drawPitcher(x,y){
-    // small far-away figure
-    px(x-3,y-8,6,7,C.blue);     // body
-    px(x-2,y-12,4,4,C.skin);    // head
-    px(x-4,y-7,2,4,C.skin);     // arm
-    px(x-3,y-1,2,4,C.dark); px(x+1,y-1,2,4,C.dark); // legs
-  }
-
-  function drawGate(){
-    // Castle Gate net behind home plate (bottom of screen)
-    const gx=84, gw=88, gy=GATE_Y, gh=14;
-    px(gx-2,gy-2,gw+4,gh+4,C.netDk);     // frame
-    px(gx,gy,gw,gh,C.dark);
-    // mesh
-    g.strokeStyle=C.net; g.lineWidth=1;
-    for(let i=gx+4;i<gx+gw;i+=6){ g.beginPath(); g.moveTo(i+0.5,gy+1); g.lineTo(i+0.5,gy+gh-1); g.stroke(); }
-    for(let j=gy+3;j<gy+gh;j+=4){ g.beginPath(); g.moveTo(gx+1,j+0.5); g.lineTo(gx+gw-1,j+0.5); g.stroke(); }
-    // posts
-    px(gx-2,gy-2,2,gh+4,C.gold); px(gx+gw,gy-2,2,gh+4,C.gold);
+  function drawPitcher(x,y,wind){
+    px(x-4,y-9,8,8,C.navy);          // body
+    px(x-3,y-14,6,5,C.skin);         // head
+    px(x-3,y-15,6,2,C.dark);         // cap
+    if(wind){ px(x-7,y-12,3,5,C.skin); px(x+4,y-11,3,4,C.skin); } // wind-up arms
+    else { px(x+3,y-8,4,3,C.skin); }
+    px(x-3,y-1,3,5,C.dark); px(x+1,y-1,3,5,C.dark);
   }
 
   function drawBatter(){
-    const lx=LANE_X[game.racket];
-    const by=PLATE_Y;
-    // shadow
-    g.fillStyle=C.shadow; g.beginPath(); g.ellipse(lx,by+10,9,3,0,0,7); g.fill();
-    // batter body (alt colors = mixed league flavor)
-    const jersey = (game.outs%2===0)?C.cream:C.red;
-    px(lx-4,by-4,8,10,jersey);    // torso
-    px(lx-3,by-11,6,6,C.skin);    // head
-    px(lx-4,by+6,3,5,C.dark); px(lx+1,by+6,3,5,C.dark); // legs
-    // RACKET — swings when active
-    const swinging = state==='PITCH' && game.swung || (state==='RESULT' && game.resultTimer>60);
-    drawRacket(lx, by-2, swinging);
+    const bx=152, by=158;
+    g.fillStyle=C.shadow; g.beginPath(); g.ellipse(bx,by+12,9,3,0,0,7); g.fill();
+    const jersey=(game.outs%2===0)?C.cream:C.red;        // mixed-league flavor
+    px(bx-4,by-6,9,13,jersey);                            // torso
+    px(bx-3,by-13,6,7,C.skin);                            // head
+    px(bx-4,by-14,7,2,C.navy);                            // helmet
+    px(bx-4,by+7,3,6,C.dark); px(bx+1,by+7,3,6,C.dark);  // legs
+    drawRacket(bx-4, by-4, game.swung);
   }
-
   function drawRacket(x,y,swing){
-    const ang = swing ? -0.9 : 0.5;
-    g.save(); g.translate(x+5,y); g.rotate(ang);
-    px(0,-1,9,2,C.dark);           // handle
+    const lx=LANE_X[game.racket];
+    g.save();
+    if(swing){ g.translate(lx,ZONE_Y); g.rotate(-0.6); }
+    else { g.translate(x,y); g.rotate(0.7); }
+    px(0,-1,9,2,C.dark);                                  // handle
     g.strokeStyle=C.gold; g.lineWidth=1.5;
-    g.beginPath(); g.ellipse(12,0,5,7,0,0,7); g.stroke();   // head
+    g.beginPath(); g.ellipse(12,0,5,7,0,0,7); g.stroke(); // head
     g.strokeStyle='rgba(216,216,232,0.6)';
     g.beginPath(); g.moveTo(12,-6); g.lineTo(12,6); g.moveTo(8,0); g.lineTo(16,0); g.stroke();
     g.restore();
   }
 
-  function drawBall(){
-    if(state==='PITCH'){
-      const b=game.ball;
-      const p=Math.min(b.t/b.dur,1.16);
-      const y=PITCH_Y0 + (b.target-PITCH_Y0)*p;
-      const x=LANE_X[b.lane] + b.curve*p*8;
-      const r=1.5 + p*2.6;
-      g.fillStyle=C.shadow; g.beginPath(); g.ellipse(x,Math.min(y+r+2,PLATE_Y+10),r,r*0.4,0,0,7); g.fill();
-      g.fillStyle=C.ball; g.beginPath(); g.arc(x,y,r,0,7); g.fill();
-      g.fillStyle=C.ballSh; g.beginPath(); g.arc(x+r*0.3,y+r*0.3,r*0.5,0,7); g.fill();
-      // lane target reticle at plate
-      g.strokeStyle='rgba(201,168,76,0.5)'; g.lineWidth=1;
-      g.strokeRect(LANE_X[b.lane]-6,PLATE_Y-6,12,12);
-    }
-    if(state==='RESULT' && game.resultBall && !game.resultBall.gone){
-      const rb=game.resultBall;
-      g.fillStyle=C.ball; g.beginPath(); g.arc(rb.x,rb.y,2.5,0,7); g.fill();
+  function drawCatcher(){
+    const cx=128, cy=190;
+    px(cx-9,cy-2,18,22,C.red);            // chest protector / back
+    px(cx-9,cy+4,18,4,C.dark);
+    px(cx-8,cy-12,16,12,C.netDk);         // helmet back
+    px(cx-8,cy-12,16,3,C.dark);
+    for(let i=-6;i<=6;i+=3) px(cx+i,cy-11,1,9,C.cream); // mask bars (back)
+    // mitt up at the strike zone (target)
+    if(state==='PITCH'){ px(LANE_X[game.racket]+8,ZONE_Y-4,8,8,C.dirtLt); px(LANE_X[game.racket]+9,ZONE_Y-3,6,6,C.dirt); }
+  }
+
+  function drawPitch(){
+    if(state!=='PITCH') return;
+    const b=game.ball, p=Math.min(b.t/b.dur,1.18);
+    const y=MOUND.y + (GATE_Y-MOUND.y)*p;
+    const x=LANE_X[b.lane] + b.curve*p*6;
+    const r=1.2 + p*2.8;
+    g.fillStyle=C.shadow; g.beginPath(); g.ellipse(x,Math.min(y+r+3,GATE_Y),r,r*0.4,0,0,7); g.fill();
+    g.fillStyle=C.ball; g.beginPath(); g.arc(x,y,r,0,7); g.fill();
+    g.fillStyle=C.ballSh; g.beginPath(); g.arc(x+r*0.3,y+r*0.3,r*0.5,0,7); g.fill();
+    // strike-zone reticle
+    g.strokeStyle='rgba(201,168,76,0.55)'; g.lineWidth=1;
+    g.strokeRect(LANE_X[game.racket]-7, ZONE_Y-9, 14, 18);
+  }
+
+  function drawGateForeground(){
+    const gx=20, gw=W-40, gy=GATE_Y-4, gh=22;
+    // posts
+    px(gx-4,gy-6,4,gh+10,C.gold); px(gx+gw,gy-6,4,gh+10,C.gold);
+    px(gx-4,gy-6,gw+8,4,C.gold);  // crossbar
+    // mesh (semi-transparent so field shows through)
+    g.strokeStyle='rgba(216,216,232,0.45)'; g.lineWidth=1;
+    for(let i=gx;i<=gx+gw;i+=8){ g.beginPath(); g.moveTo(i+0.5,gy-2); g.lineTo(i+0.5,gy+gh); g.stroke(); }
+    for(let j=gy-2;j<=gy+gh;j+=6){ g.beginPath(); g.moveTo(gx,j+0.5); g.lineTo(gx+gw,j+0.5); g.stroke(); }
+    // gate-goal flash
+    if(state==='RESULT' && game.result===SCORE.GATE && Math.floor(game.t/4)%2===0){
+      g.fillStyle='rgba(192,57,43,0.30)'; g.fillRect(gx,gy-6,gw,gh+8);
     }
   }
 
+  // ══ FIELD CAMERA (wide aerial) ════════════════════════════════════
+  function drawFieldCam(){
+    // grass
+    px(0,0,W,H,C.grass1);
+    for(let i=0;i<8;i++) px(0,i*28,W,14,C.grass2);
+    // stands behind the wall
+    px(0,0,W,16,C.navy); crowd(2,14);
+    // outfield wall arc
+    g.strokeStyle=C.wall; g.lineWidth=5;
+    g.beginPath(); g.arc(FHOME.x, FHOME.y+10, 158, Math.PI*1.18, Math.PI*1.82); g.stroke();
+    g.strokeStyle=C.gold; g.lineWidth=1;
+    g.beginPath(); g.arc(FHOME.x, FHOME.y+10, 155, Math.PI*1.18, Math.PI*1.82); g.stroke();
+
+    // foul lines / fair wedge
+    g.fillStyle=C.grass3;
+    g.beginPath(); g.moveTo(FHOME.x,FHOME.y); g.lineTo(20,44); g.lineTo(236,44); g.closePath(); g.fill();
+    g.strokeStyle=C.line; g.lineWidth=1;
+    g.beginPath(); g.moveTo(FHOME.x,FHOME.y); g.lineTo(22,46); g.moveTo(FHOME.x,FHOME.y); g.lineTo(234,46); g.stroke();
+
+    // infield dirt diamond
+    const h=FHOME, b1={x:170,y:156}, b2={x:128,y:118}, b3={x:86,y:156};
+    g.fillStyle=C.dirt;
+    g.beginPath(); g.moveTo(h.x,h.y); g.lineTo(b1.x,b1.y); g.lineTo(b2.x,b2.y); g.lineTo(b3.x,b3.y); g.closePath(); g.fill();
+    g.fillStyle=C.grass2;
+    g.beginPath(); g.moveTo(h.x,h.y-12); g.lineTo(b1.x-14,b1.y); g.lineTo(b2.x,b2.y+12); g.lineTo(b3.x+14,b3.y); g.closePath(); g.fill();
+    g.strokeStyle=C.line; g.lineWidth=1;
+    g.beginPath(); g.moveTo(h.x,h.y); g.lineTo(b1.x,b1.y); g.lineTo(b2.x,b2.y); g.lineTo(b3.x,b3.y); g.closePath(); g.stroke();
+    px(b1.x-3,b1.y-3,6,6, game.baseLit[0]?C.gold:C.line);
+    px(b2.x-3,b2.y-3,6,6, game.baseLit[1]?C.gold:C.line);
+    px(b3.x-3,b3.y-3,6,6, game.baseLit[2]?C.gold:C.line);
+    px(h.x-3,h.y-2,6,5,C.line);
+    px(FHOME.x-4,150,8,4,C.dirtDk); // mound
+
+    // 9 fielders (mixed-league alt colors), all breaking in unison
+    if(game.field){
+      game.field.fielders.forEach((fl,i)=>{
+        g.fillStyle=C.shadow; g.beginPath(); g.ellipse(fl.x,fl.y+5,4,2,0,0,7); g.fill();
+        const jersey=(i%2===0)?C.blue:C.cream;
+        px(fl.x-2,fl.y-4,5,7,jersey); px(fl.x-2,fl.y-8,5,4,C.skin); px(fl.x-2,fl.y-9,5,2,C.navy);
+      });
+      // the struck ball
+      const b=game.field.ball;
+      if(!b.gone){
+        g.fillStyle=C.shadow; g.beginPath(); g.ellipse(b.x,b.y+6,3,1.5,0,0,7); g.fill();
+        g.fillStyle=C.ball; g.beginPath(); g.arc(b.x,b.y,2.5,0,7); g.fill();
+      }
+      // motion streak
+      if(game.field.t<40){ g.strokeStyle='rgba(244,244,244,0.4)'; g.lineWidth=1;
+        g.beginPath(); g.moveTo(b.sx,b.sy); g.lineTo(b.x,b.y); g.stroke(); }
+    }
+    text('FIELDING',128,20,C.gold,7,'center');
+  }
+
+  // ── HUD + banners ─────────────────────────────────────────────────
   function drawHUD(){
-    // top scoreboard bar
-    px(0,0,W,0,C.dark);
-    g.fillStyle='rgba(8,9,14,0.82)'; g.fillRect(0,0,W,16);
-    px(0,16,W,1,C.gold);
-    text('YOU',5,5,C.gold,8);
-    text(String(game.score),40,5,C.cream,8);
-    text('DEF',150,5,C.red,8);
-    text(String(game.defScore),182,5,C.cream,8);
-    // outs as pips
-    text('OUT',5,H-12,C.muted='rgba(240,232,208,0.6)',8);
-    for(let i=0;i<game.maxOuts;i++){
-      px(40+i*7,H-11, 5,5, i<game.outs?C.red:'#333');
-    }
+    g.fillStyle='rgba(8,9,14,0.82)'; g.fillRect(0,0,W,16); px(0,16,W,1,C.gold);
+    text('YOU',5,5,C.gold,8); text(String(game.score),40,5,C.cream,8);
+    text('DEF',150,5,C.red,8); text(String(game.defScore),182,5,C.cream,8);
+    text('OUT',5,H-12,'rgba(240,232,208,0.6)',8);
+    for(let i=0;i<game.maxOuts;i++) px(40+i*7,H-11,5,5, i<game.outs?C.red:'#333');
   }
-
   function drawResultBanner(){
     if(state!=='RESULT'||!game.result) return;
     const r=game.result;
-    const a = game.resultTimer>0 ? 1 : 0.85;
-    g.fillStyle='rgba(8,9,14,'+(0.55*a)+')'; g.fillRect(0,96,W,40);
-    px(0,96,W,1,r.col); px(0,136,W,1,r.col);
+    g.fillStyle='rgba(8,9,14,0.6)'; g.fillRect(0,96,W,42);
+    px(0,96,W,1,r.col); px(0,138,W,1,r.col);
     text(r.label,128,104,r.col,9,'center');
-    const sign = (r===SCORE.GATE?'+':'+');
-    text(sign+r.pts+(r===SCORE.GATE?' DEF':' PTS'),128,120,C.cream,8,'center');
-    if(game.resultTimer<=0){
-      const blink = (Math.floor(game.t/16)%2===0);
-      if(blink) text('▶ TAP / SPACE',128,146,C.gold,7,'center');
-    }
+    text('+'+r.pts+(r===SCORE.GATE?' DEF':' PTS'),128,120,C.cream,8,'center');
+    if(game.resultTimer<=0 && Math.floor(game.t/16)%2===0) text('▶ TAP / SPACE',128,150,C.gold,7,'center');
   }
 
   function drawTitle(){
-    drawField(); drawGate();
-    g.fillStyle='rgba(8,9,14,0.72)'; g.fillRect(0,0,W,H);
-    text('CASTLE BALL II',128,52,C.gold,13,'center');
-    text('GATE  DEFENSE',128,72,C.cream,8,'center');
-    px(40,88,W-80,1,C.gold);
-    text('Defend the Castle Gate.',128,100,C.cream,7,'center');
-    text('Swing your racket to',128,114,C.cream,7,'center');
-    text('smash into the diamond.',128,128,C.cream,7,'center');
-    if(Math.floor(game.t/18)%2===0) text('▶ PRESS SPACE / TAP',128,156,C.gold,8,'center');
-    text("9 outs · don't feed the Gate",128,182,'rgba(240,232,208,0.5)',6,'center');
+    drawBatCam();
+    g.fillStyle='rgba(8,9,14,0.74)'; g.fillRect(0,0,W,H);
+    text('CASTLE BALL II',128,46,C.gold,13,'center');
+    text('GATE  DEFENSE',128,66,C.cream,8,'center');
+    px(40,82,W-80,1,C.gold);
+    text('Bat behind the plate.',128,94,C.cream,7,'center');
+    text('Smash it — then watch',128,108,C.cream,7,'center');
+    text('the whole field break.',128,122,C.cream,7,'center');
+    if(Math.floor(game.t/18)%2===0) text('▶ PRESS SPACE / TAP',128,150,C.gold,8,'center');
+    text("9 outs · don't feed the Gate",128,178,'rgba(240,232,208,0.5)',6,'center');
   }
-
   function drawOver(){
-    drawField(); drawGate(); drawBatter();
+    drawBatCam();
     g.fillStyle='rgba(8,9,14,0.8)'; g.fillRect(0,0,W,H);
-    text('GAME OVER',128,46,C.red,13,'center');
-    px(48,66,W-96,1,C.gold);
-    text('YOUR SCORE',128,80,C.gold,8,'center');
-    text(String(game.score),128,96,C.cream,12,'center');
-    text('GATE GOALS',128,120,C.red,7,'center');
-    text(String(game.defScore),128,132,C.cream,8,'center');
-    const win = game.score>game.defScore;
-    text(win?'★ CASTLE HELD ★':'GATE BREACHED',128,152,win?C.gold:C.red,8,'center');
-    if(Math.floor(game.t/18)%2===0) text('▶ PLAY AGAIN',128,176,C.gold,8,'center');
+    text('GAME OVER',128,44,C.red,13,'center'); px(48,64,W-96,1,C.gold);
+    text('YOUR SCORE',128,78,C.gold,8,'center'); text(String(game.score),128,94,C.cream,12,'center');
+    text('GATE GOALS',128,118,C.red,7,'center'); text(String(game.defScore),128,130,C.cream,8,'center');
+    const win=game.score>game.defScore;
+    text(win?'★ CASTLE HELD ★':'GATE BREACHED',128,150,win?C.gold:C.red,8,'center');
+    if(Math.floor(game.t/18)%2===0) text('▶ PLAY AGAIN',128,174,C.gold,8,'center');
   }
 
-  // ── main render ───────────────────────────────────────────────────
+  // ── render ────────────────────────────────────────────────────────
   function render(){
     g.save();
-    if(game.shake>0){ g.translate((Math.random()-0.5)*game.shake, (Math.random()-0.5)*game.shake); }
-    g.clearRect(-10,-10,W+20,H+20);
-
+    if(game.shake>0) g.translate((Math.random()-0.5)*game.shake,(Math.random()-0.5)*game.shake);
+    g.clearRect(-12,-12,W+24,H+24);
     if(state==='TITLE'){ drawTitle(); g.restore(); return; }
     if(state==='OVER'){ drawOver(); g.restore(); return; }
 
-    drawField();
-    drawGate();
-    drawBall();
-    drawBatter();
+    if(state==='FIELD' || (state==='RESULT' && game.lastView==='field')) drawFieldCam();
+    else drawBatCam();
+
     drawHUD();
     drawResultBanner();
     g.restore();
   }
 
-  // ── loop ──────────────────────────────────────────────────────────
   function loop(){ update(); render(); requestAnimationFrame(loop); }
-
-  // wait for pixel font, then go
-  if(document.fonts && document.fonts.ready){
-    document.fonts.load("8px 'Press Start 2P'").then(()=>{fontReady=true;});
-  }
+  if(document.fonts && document.fonts.ready){ document.fonts.load("8px 'Press Start 2P'"); }
   resetGame();
   loop();
 })();

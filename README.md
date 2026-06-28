@@ -35,7 +35,12 @@ Castle Ball is played on a standard baseball diamond with one key addition: a **
 
 ## 🎮 Gate Defense — the 16-bit game
 
-A self-contained arcade game in [`game.html`](game.html), rendered at **true SNES resolution (256×224)** with integer scaling, scanlines, a CRT vignette, and chiptune blips. It puts you in the batter's box: a pitch comes down one of three lanes toward the **Castle Gate** behind you — line up your **racket**, time your swing, and smash it into the diamond. Whiff and the ball sails into the Gate for a **defensive Gate Goal**.
+A self-contained arcade game in [`game.html`](game.html), rendered at **true SNES resolution (256×224)** with integer scaling, scanlines, a CRT vignette, and chiptune blips. It uses the classic SNES-baseball two-camera setup (à la *Nolan Ryan's Baseball*):
+
+- **Batting camera — behind the catcher.** Low to the field, looking out at the pitcher on the mound. The pitch comes toward you down one of three lanes (inside / middle / outside), growing as it nears the plate, while you peer through the **Castle Gate** net in the foreground. Line up your **racket**, time the swing.
+- **Fielding camera — the full field.** The moment you make contact, the view cuts to a wide aerial shot of the whole diamond and outfield, where **all 9 fielders break in unison** toward the ball (simplified, just like the SNES original) before the play resolves.
+
+Whiff and the ball sails past you into the Gate for a **defensive Gate Goal**.
 
 **Controls**
 | Action | Keys |
