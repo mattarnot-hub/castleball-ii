@@ -347,18 +347,37 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; }
   function ptxt(s,x,y,col,size,align='left'){ g.fillStyle=col; g.font=size+"px 'Press Start 2P', monospace"; g.textAlign=align; g.textBaseline='middle'; g.fillText(s,x,y); }
   function dot(x,y,r,on,col){ g.beginPath(); g.arc(x,y,r,0,7); g.fillStyle=on?col:'#10331f'; g.fill(); g.lineWidth=1.5; g.strokeStyle='#06170d'; g.stroke(); }
 
-  // rounded, shaded little player (used for fielders) with a subtle idle bob
+  // lighten/darken a #rrggbb colour
+  function shade(hex,f){ const n=parseInt(hex.slice(1),16), c=v=>Math.max(0,Math.min(255,Math.round(v)));
+    return 'rgb('+c(((n>>16)&255)*f)+','+c(((n>>8)&255)*f)+','+c((n&255)*f)+')'; }
+  // soft-shaded head with a ball cap (local coords)
+  function drawHead(cx,cy,r,cap){
+    const hg=g.createRadialGradient(cx-r*0.35,cy-r*0.35,1,cx,cy,r);
+    hg.addColorStop(0,shade(C.skin,1.12)); hg.addColorStop(1,shade(C.skin,0.86));
+    g.fillStyle=hg; g.beginPath(); g.arc(cx,cy,r,0,7); g.fill();
+    g.fillStyle=cap; g.beginPath(); g.arc(cx,cy-r*0.18,r*1.03,Math.PI,2*Math.PI); g.closePath(); g.fill();
+    g.fillStyle=shade(cap,1.22); g.beginPath(); g.arc(cx-r*0.3,cy-r*0.45,r*0.38,0,7); g.fill();
+    g.fillStyle=shade(cap,0.82); rr(cx-r*1.05,cy-r*0.22,r*2.1,r*0.5,r*0.22); g.fill();
+  }
+
+  // smooth, shaded, hand-drawn-style player (fielders / runners) with idle bob
   function player(x,y,jersey,pant,sc,idx){
-    sc=sc||1; idx=idx||0; y += Math.sin((game.t+idx*9)/14)*1.2;
-    g.fillStyle='rgba(0,0,0,0.28)'; g.beginPath(); g.ellipse(x,y+12*sc,8*sc,3*sc,0,0,7); g.fill();
-    g.fillStyle=pant; g.fillRect(x-5*sc,y+3*sc,4*sc,9*sc); g.fillRect(x+1*sc,y+3*sc,4*sc,9*sc);
-    g.fillStyle=jersey; g.fillRect(x-6*sc,y-7*sc,12*sc,11*sc);
-    g.fillStyle='rgba(0,0,0,0.18)'; g.fillRect(x+1*sc,y-7*sc,5*sc,11*sc);
-    g.fillStyle=jersey; g.fillRect(x-8*sc,y-6*sc,3*sc,8*sc); g.fillRect(x+5*sc,y-6*sc,3*sc,8*sc);
-    g.fillStyle=C.skin; g.fillRect(x-8*sc,y+1*sc,3*sc,3*sc);
-    g.fillStyle='#6a4a2a'; g.beginPath(); g.arc(x+8*sc,y+2*sc,3*sc,0,7); g.fill();   // glove
-    g.fillStyle=C.skin; g.beginPath(); g.arc(x,y-11*sc,4.5*sc,0,7); g.fill();
-    g.fillStyle=C.navy; g.fillRect(x-5*sc,y-15*sc,10*sc,4*sc); g.fillRect(x-9*sc,y-12*sc,4*sc,2*sc); // cap+brim
+    sc=sc||1; idx=idx||0;
+    g.save(); g.translate(x, y + Math.sin((game.t+idx*9)/16)*1.3); g.scale(sc,sc); g.lineJoin='round';
+    g.fillStyle='rgba(0,0,0,0.26)'; g.beginPath(); g.ellipse(0,16,9,3,0,0,7); g.fill();              // shadow
+    g.fillStyle=shade(pant,0.95); rr(-5,3,4,12,2); g.fill(); rr(1,3,4,12,2); g.fill();                // legs
+    g.fillStyle='#15151c'; g.beginPath(); g.ellipse(-3,16,3.2,1.8,0,0,7); g.fill(); g.beginPath(); g.ellipse(3,16,3.2,1.8,0,0,7); g.fill();
+    g.fillStyle=shade(jersey,0.8); rr(4.6,-7,3.4,11,1.7); g.fill();                                    // back arm
+    g.fillStyle=shade(C.skin,0.92); g.beginPath(); g.arc(6.3,4.5,2,0,7); g.fill();
+    const jg=g.createLinearGradient(-7,0,7,0); jg.addColorStop(0,shade(jersey,1.14)); jg.addColorStop(0.55,jersey); jg.addColorStop(1,shade(jersey,0.78));
+    g.fillStyle=jg; rr(-7,-8,14,13,5); g.fill();                                                       // torso
+    g.strokeStyle='rgba(0,0,0,0.28)'; g.lineWidth=1; rr(-7,-8,14,13,5); g.stroke();
+    g.fillStyle=shade(jersey,1.04); rr(-8.4,-7,3.4,10,1.7); g.fill();                                  // front arm
+    g.fillStyle='#7a5230'; g.beginPath(); g.arc(-7.2,4.6,3,0,7); g.fill();                             // glove
+    g.strokeStyle='rgba(0,0,0,0.3)'; g.beginPath(); g.arc(-7.2,4.6,3,0,7); g.stroke();
+    g.fillStyle=shade(C.skin,0.9); rr(-1.6,-12.5,3.2,4,1.2); g.fill();                                 // neck
+    drawHead(0,-14,5,C.navy);
+    g.restore();
   }
 
   function stands(y0,y1){
@@ -422,14 +441,19 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; }
     if(lit){ g.fillStyle=C.red; g.fillRect(-2,-2,4,4);} g.restore(); }
 
   function drawPitcher(x,y,wind){
-    g.fillStyle='rgba(0,0,0,0.28)'; g.beginPath(); g.ellipse(x,y+24,18,5,0,0,7); g.fill();
-    g.fillStyle=C.awayPant; g.fillRect(x-7,y+12,6,14); g.fillRect(x+1,y+12,6,14);     // legs
-    g.fillStyle=C.awayJ; g.fillRect(x-9,y-4,18,18); g.fillStyle='rgba(0,0,0,0.16)'; g.fillRect(x+2,y-4,7,18); // torso
-    g.fillStyle=C.skin; g.beginPath(); g.arc(x,y-12,6,0,7); g.fill();                  // head
-    g.fillStyle=C.navy; g.fillRect(x-7,y-19,14,5); g.fillRect(x+5,y-15,5,3);           // cap+brim
-    g.fillStyle=C.awayJ;
-    if(wind){ g.fillRect(x-14,y-12,5,12); g.fillRect(x+9,y-14,5,12); g.fillStyle=C.ball; g.beginPath(); g.arc(x+12,y-15,3,0,7); g.fill(); } // wind-up
-    else { g.fillRect(x-13,y-2,5,10); g.fillRect(x+8,y-2,5,10); }
+    g.save(); g.translate(x,y); g.lineJoin='round';
+    g.fillStyle='rgba(0,0,0,0.28)'; g.beginPath(); g.ellipse(0,26,17,5,0,0,7); g.fill();
+    g.fillStyle=shade(C.awayPant,0.95); rr(-7,12,6,15,3); g.fill(); rr(1,12,6,15,3); g.fill();    // legs
+    g.fillStyle='#15151c'; g.beginPath(); g.ellipse(-4,27,4,2.2,0,0,7); g.fill(); g.beginPath(); g.ellipse(4,27,4,2.2,0,0,7); g.fill();
+    g.fillStyle=shade(C.awayJ,0.82); if(wind){ rr(8,-18,5,16,2.5); } else { rr(8,-4,5,13,2.5); } g.fill();   // back arm
+    const jg=g.createLinearGradient(-10,0,10,0); jg.addColorStop(0,shade(C.awayJ,1.12)); jg.addColorStop(0.55,C.awayJ); jg.addColorStop(1,shade(C.awayJ,0.78));
+    g.fillStyle=jg; rr(-9,-6,18,19,7); g.fill(); g.strokeStyle='rgba(0,0,0,0.25)'; g.lineWidth=1; rr(-9,-6,18,19,7); g.stroke();   // torso
+    g.fillStyle=shade(C.awayJ,1.04);
+    if(wind){ rr(-13,-18,5,16,2.5); g.fill(); g.fillStyle=C.ball; g.beginPath(); g.arc(-10.5,-18,3,0,7); g.fill(); }   // front arm + ball
+    else { rr(-13,-4,5,13,2.5); g.fill(); g.fillStyle=shade(C.skin,0.92); g.beginPath(); g.arc(-10.5,9,2.2,0,7); g.fill(); }
+    g.fillStyle=shade(C.skin,0.9); rr(-2,-11,4,4,1.4); g.fill();      // neck
+    drawHead(0,-13,6,C.navy);
+    g.restore();
   }
 
   function drawBoxesAndPlate(){
@@ -442,13 +466,17 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; }
 
   function drawBatter(){
     const bx=210,by=388;
-    g.fillStyle='rgba(0,0,0,0.30)'; g.beginPath(); g.ellipse(bx,by+22,18,5,0,0,7); g.fill();
-    g.fillStyle=C.homePant; g.fillRect(bx-10,by+10,7,20); g.fillRect(bx+3,by+10,7,20);   // stance legs
-    g.fillStyle=C.homeJ; g.fillRect(bx-10,by-12,20,24); g.fillStyle=C.homeJd; g.fillRect(bx-10,by-12,20,5);
-    g.fillStyle='rgba(0,0,0,0.16)'; g.fillRect(bx+2,by-12,8,24);                          // torso shade
-    g.fillStyle=C.skin; g.beginPath(); g.arc(bx,by-20,6.5,0,7); g.fill();                 // head
-    g.fillStyle=C.homeJd; g.fillRect(bx-7,by-27,14,6); g.fillRect(bx-10,by-23,4,3);       // helmet
-    g.fillStyle=C.skin; g.fillRect(bx+4,by-10,9,4);                                       // hands
+    g.save(); g.translate(bx,by); g.lineJoin='round';
+    g.fillStyle='rgba(0,0,0,0.3)'; g.beginPath(); g.ellipse(0,24,17,5,0,0,7); g.fill();
+    g.fillStyle=shade(C.homePant,0.96); rr(-10,10,7,20,3); g.fill(); rr(3,10,7,20,3); g.fill();   // stance legs
+    g.fillStyle='#15151c'; g.beginPath(); g.ellipse(-6,30,4.5,2.4,0,0,7); g.fill(); g.beginPath(); g.ellipse(6,30,4.5,2.4,0,0,7); g.fill();
+    const jg=g.createLinearGradient(-11,0,11,0); jg.addColorStop(0,shade(C.homeJ,1.14)); jg.addColorStop(0.55,C.homeJ); jg.addColorStop(1,shade(C.homeJ,0.76));
+    g.fillStyle=jg; rr(-10,-12,20,24,8); g.fill(); g.strokeStyle='rgba(0,0,0,0.28)'; g.lineWidth=1; rr(-10,-12,20,24,8); g.stroke();   // torso
+    g.fillStyle=shade(C.homeJ,1.03); rr(2,-10,6,12,3); g.fill();                          // lead arm
+    g.fillStyle=shade(C.skin,0.95); g.beginPath(); g.arc(9.5,-1,2.6,0,7); g.fill();       // hands
+    g.fillStyle=shade(C.skin,0.9); rr(-2.4,-18,4.8,5,1.6); g.fill();                      // neck
+    drawHead(0,-20,7,C.homeJd);                                                            // batting helmet
+    g.restore();
     drawRacket(bx,by-6);
   }
   function drawRacket(bx,by){
@@ -462,11 +490,16 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; }
   }
   function drawCatcher(){
     const cx=256,cy=430;
-    g.fillStyle=C.homeJd; g.fillRect(cx-16,cy-6,32,30);
-    g.fillStyle=C.homeJ; g.fillRect(cx-16,cy-6,32,10);
-    g.fillStyle='#9aa'; g.fillRect(cx-12,cy-22,24,18); g.fillStyle=C.dark; g.fillRect(cx-12,cy-22,24,4);
-    for(let i=-9;i<=9;i+=4){ g.fillStyle=C.cream; g.fillRect(cx+i,cy-20,1,14);} // mask bars (back)
-    if(state==='PITCH'){ g.fillStyle=C.dirtHi; g.beginPath(); g.arc(LANES[game.racket]+18,CONTACT_Y,7,0,7); g.fill(); }
+    g.save(); g.translate(cx,cy); g.lineJoin='round';
+    g.fillStyle='rgba(0,0,0,0.3)'; g.beginPath(); g.ellipse(0,16,18,5,0,0,7); g.fill();
+    g.fillStyle=shade(C.homePant,0.92); rr(-13,6,9,12,4); g.fill(); rr(4,6,9,12,4); g.fill();         // crouched shins
+    const cg=g.createLinearGradient(-16,0,16,0); cg.addColorStop(0,shade(C.homeJd,1.12)); cg.addColorStop(1,shade(C.homeJd,0.8));
+    g.fillStyle=cg; rr(-15,-10,30,22,10); g.fill(); g.strokeStyle='rgba(0,0,0,0.28)'; g.lineWidth=1; rr(-15,-10,30,22,10); g.stroke(); // chest protector
+    g.fillStyle='#8f8f9c'; g.beginPath(); g.arc(0,-16,9,0,7); g.fill();                                // helmet (back of head)
+    g.fillStyle=shade('#8f8f9c',1.2); g.beginPath(); g.arc(-3,-18,3,0,7); g.fill();
+    g.strokeStyle='rgba(0,0,0,0.4)'; g.lineWidth=1; for(let i=-7;i<=7;i+=3){ g.beginPath(); g.moveTo(i,-23); g.lineTo(i,-9); g.stroke(); } // mask bars
+    g.restore();
+    if(state==='PITCH'){ g.fillStyle='#7a5230'; g.beginPath(); g.arc(LANES[game.racket]+18,CONTACT_Y,7,0,7); g.fill(); g.strokeStyle='rgba(0,0,0,0.3)'; g.lineWidth=1; g.stroke(); } // mitt target
   }
   function drawPitch(){
     if(state!=='PITCH') return; const p=game.pitch;
