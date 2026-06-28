@@ -37,16 +37,18 @@ Castle Ball is played on a standard baseball diamond with one key addition: a **
 
 A self-contained stadium sim in [`game.html`](game.html), rendered at **512×448** with gradient field/sky shading, a full crowd, scoreboards, and chiptune blips — a higher-fidelity take in the spirit of 16-bit/early-3D console baseball games. You play **both sides of the ball**, with a real baseball loop layered over Castle Ball:
 
-- **Batting camera — behind the plate.** A stadium view looking out at the **CPU pitcher** on the mound, who throws toward the net at varied spots. Slide your **racket** across the **wide batter's box** (the center three lanes are the strike zone) and time your swing.
-- **Fielding camera — the full field.** The moment you make contact, the view cuts to the whole diamond + outfield, and **you control all nine fielders moving together in unison** — one input shifts the entire formation around its general area (faithful to how the 16-bit originals did it). Cover the ball's landing spot to record the out; let it drop into a gap for a hit.
+- **Batting camera — behind the plate.** A stadium view looking out at the pitcher on the mound. **You throw the pitch yourself** (tap once to release — the CPU picks the location), then tap again to swing. Slide your **racket** across the **wide batter's box** (the center three lanes are the strike zone) and time the swing as the ball reaches the plate.
+- **Fielding camera — the full field.** The moment you make contact, the view cuts to the whole diamond + outfield. The batted ball **lofts up into the air and falls back down to the field** (with a ground shadow marking where it'll land), giving you time to **move all nine fielders together in unison** — one input shifts the entire formation around its general area. Cover the landing spot to record the out; let it drop into a gap for a hit.
+
+> **Speed note:** the simulation runs on a fixed 60 Hz timestep, so ball/pitch physics play at the same (deliberately readable) speed on any monitor, including high-refresh displays.
 
 **Baseball functionality:** balls / strikes / outs tracked on a **B-S-O scoreboard**, **4 balls = walk**, **3 strikes = strikeout** (the ball reaches the **Castle Gate** for a +50 defensive Gate Goal), 3 outs per inning, **3 innings** per game.
 
 **Controls**
 | Phase | Keys |
 |---|---|
+| Throw pitch, then swing | `Space` / `Z` / tap (first = throw, second = swing) |
 | Bat — aim racket | `←` `→` / `A` `D` |
-| Bat — swing | `Space` / `Z` / tap |
 | Field — move whole defense in unison | `←` `→` `↑` `↓` / `WASD` |
 | Start / continue | `Space` / tap |
 
