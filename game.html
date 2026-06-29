@@ -263,7 +263,7 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; }
       phase:'air', t:0, land, RUN:150, hitSpeed,
       ball:{sx:FHOME.x, sy:FHOME.y, tx, ty, gx:FHOME.x, gy:FHOME.y, h:0, vx:0, vy:0, vh:0, x:FHOME.x, y:FHOME.y, peak, over, fly, team:'off'},
       deflectFx:null, interceptT:0,
-      fielders, ctrl:0, depth, runners:R, lead, leadBase, throwBase:-1, throw:null
+      fielders, ctrl:0, depth, runners:R, lead, leadBase, throwBase:-1, throw:null, cover:-1
     };
     state='FIELD';
   }
@@ -278,24 +278,29 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; }
   function throwTo(base){ const f=game.field; if(f.phase!=='held') return;
     const fc=f.fielders[f.ctrl], tp=basePos(base), d=Math.hypot(tp.x-fc.x,tp.y-fc.y);
     const sp=(2/3)*f.hitSpeed;                                   // a throw travels 2/3 the speed of the hit
+    // a team-mate breaks to COVER the bag (the throw is only caught if someone gets there)
+    let cover=f.ctrl, bestc=1e9; f.fielders.forEach((fl,i)=>{ if(i===f.ctrl) return; const dd=Math.hypot(fl.x-tp.x,fl.y-tp.y); if(dd<bestc){bestc=dd;cover=i;} });
+    if(Math.hypot(fc.x-tp.x,fc.y-tp.y) < bestc) cover=f.ctrl;    // thrower is closest -> they take the bag themselves
+    f.cover=cover;
     f.throwBase=base; f.throw={sx:fc.x, sy:fc.y, x:fc.x, y:fc.y, t:0, dur:Math.max(14, Math.round(d/sp))};
     f.phase='throw'; beep(520,0.05,'square',0.06);
   }
-  function evalThrow(){ const f=game.field, base=f.throwBase;
+  function evalThrow(){ const f=game.field, base=f.throwBase, tp=basePos(base), cf=f.fielders[f.cover];
+    if(Math.hypot(cf.x-tp.x, cf.y-tp.y) > 20){ resolvePlay(null,false,'NO ONE COVERING — SAFE!'); return; }  // throw not received
     let outIdx=-1; f.runners.forEach((r,i)=>{ if(!r.out && r.to===base && r.to>r.from && r.prog<1) outIdx=i; });
-    if(outIdx>=0){ f.runners[outIdx].out=true; resolvePlay('OUT AT '+baseName(base), true); }   // beat the runner there
-    else resolvePlay(null,false);                                                               // nobody to retire
+    if(outIdx>=0){ f.runners[outIdx].out=true; resolvePlay('OUT AT '+baseName(base), true); }   // caught & beat the runner
+    else resolvePlay(null,false);                                                               // caught, but nobody to retire
   }
   function allRunnersDone(){ return game.field.runners.every(r=> r.to===r.from || r.prog>=1); }
   function safePlay(){ resolvePlay(null,false); }
 
-  function resolvePlay(outLabel, wasOut){
+  function resolvePlay(outLabel, wasOut, safeLabel){
     const f=game.field; let runs=0; const nb=[false,false,false];
     f.runners.forEach(r=>{ if(r.out) return; if(r.to===4) runs++; else if(r.to>=1&&r.to<=3) nb[r.to-1]=true; });
     game.bases=nb; game.baseFlash=18;
     if(runs>0) score(runs);
     if(wasOut){ recordOut(); beep(300,0.14); newBatter(); banner({label:outLabel, col:C.cream, pts:0}); }
-    else { game.points+=10; chord([440,587],0.09); newBatter(); banner({label: runs>0?'SAFE — RUN SCORES!':'BASE HIT', col: runs>0?C.gold:C.cream, pts:10}); }
+    else { game.points+=10; chord([440,587],0.09); newBatter(); banner({label: safeLabel || (runs>0?'SAFE — RUN SCORES!':'BASE HIT'), col: runs>0?C.gold:C.cream, pts:10}); }
   }
   function flyout(){ game.lastView='field'; recordOut(); newBatter(); beep(340,0.14);  // runners hold / tag up — bases unchanged
     banner({label:'OUT! CAUGHT', col:C.cream, pts:0}); }
@@ -387,7 +392,9 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; }
       else if(f.phase==='throw'){
         const tw=f.throw, tp=basePos(f.throwBase); tw.t++; const pr=Math.min(tw.t/tw.dur,1);
         tw.x=tw.sx+(tp.x-tw.sx)*pr; tw.y=tw.sy+(tp.y-tw.sy)*pr;
-        if(pr>=1) evalThrow();                          // throw vs the runner at that base
+        const cf=f.fielders[f.cover], cs=4.8, cdx=tp.x-cf.x, cdy=tp.y-cf.y, cdd=Math.hypot(cdx,cdy);   // cover fielder hustles to the bag
+        if(cdd>cs){ cf.x+=cdx/cdd*cs; cf.y+=cdy/cdd*cs; } else { cf.x=tp.x; cf.y=tp.y; }
+        if(pr>=1) evalThrow();                          // arrives: caught only if someone's covering
       }
     }
     else if(state==='RESULT'){
@@ -660,8 +667,9 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; }
       if(f.phase==='air' && !b.over){ g.strokeStyle='rgba(255,255,255,0.55)'; g.lineWidth=2;
         g.beginPath(); g.arc(b.tx,b.ty,9,0,7); g.stroke();
         g.beginPath(); g.moveTo(b.tx-13,b.ty); g.lineTo(b.tx+13,b.ty); g.moveTo(b.tx,b.ty-13); g.lineTo(b.tx,b.ty+13); g.stroke(); }
-      // the base being thrown to lights up red
-      if(f.phase==='throw' && f.throwBase>=1){ const tp=basePos(f.throwBase); g.strokeStyle='rgba(212,69,58,0.9)'; g.lineWidth=3; g.beginPath(); g.arc(tp.x,tp.y,12,0,7); g.stroke(); }
+      // the base being thrown to lights up red, and the covering fielder gets a cyan ring + "COVER"
+      if(f.phase==='throw' && f.throwBase>=1){ const tp=basePos(f.throwBase); g.strokeStyle='rgba(212,69,58,0.9)'; g.lineWidth=3; g.beginPath(); g.arc(tp.x,tp.y,12,0,7); g.stroke();
+        if(f.cover>=0){ const cf=f.fielders[f.cover]; g.strokeStyle=C.blue; g.lineWidth=2; g.beginPath(); g.arc(cf.x,cf.y-4,15,0,7); g.stroke(); ptxt('COVER',cf.x,cf.y-30,C.blue,7,'center'); } }
       // every offensive runner — they carry RACKETS and can deflect their own team's live ball
       f.runners.forEach(r=>{ if(r.out) return; const rp=runnerPos(r);
         player(rp.x,rp.y,C.homeJ,C.homePant,1, r.isBatter?99:50);
