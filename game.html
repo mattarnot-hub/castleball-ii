@@ -134,19 +134,26 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; }
   // ── state ─────────────────────────────────────────────────────────
   let state='TITLE';   // TITLE | PITCH | FIELD | RESULT | OVER
   const game = {
-    runs:0, points:0, defScore:0,
-    balls:0, strikes:0, outs:0, inning:1, maxInnings:3,
+    teams:{A:{pts:0,runs:0}, B:{pts:0,runs:0}}, line:{},   // line[inning] = {top:{pts,runs,def}, bot:{pts,runs,def}}
+    half:'top', inning:1, maxInnings:9,                     // top = Team A bats / B fields; bottom = B bats / A fields
+    balls:0, strikes:0, outs:0,
     racketX:BOX_C, swung:false,
     pitch:null, ptimer:0,
     bases:[false,false,false],
     result:null, resultTimer:0, lastView:'bat',
-    field:null, baseFlash:0, shake:0, t:0, msg:''
+    field:null, baseFlash:0, netFlash:0, shake:0, t:0, msg:''
   };
 
   function resetGame(){
-    Object.assign(game,{runs:0,points:0,defScore:0,balls:0,strikes:0,outs:0,inning:1,
-      racket:2,bases:[false,false,false],result:null,field:null}); state='TITLE';
+    Object.assign(game,{teams:{A:{pts:0,runs:0},B:{pts:0,runs:0}}, line:{}, half:'top', inning:1,
+      balls:0,strikes:0,outs:0, racketX:BOX_C, bases:[false,false,false], result:null, field:null}); state='TITLE';
   }
+  // ── teams / scoring ──
+  function battingTeam(){ return game.half==='top'?'A':'B'; }
+  function defendingTeam(){ return game.half==='top'?'B':'A'; }
+  function curCell(){ if(!game.line[game.inning]) game.line[game.inning]={top:{pts:0,runs:0,def:0},bot:{pts:0,runs:0,def:0}}; return game.line[game.inning][game.half==='top'?'top':'bot']; }
+  function addOff(pts,runs){ const t=battingTeam(); game.teams[t].pts+=pts; game.teams[t].runs+=(runs||0); const c=curCell(); c.pts+=pts; c.runs+=(runs||0); }
+  function addDef(pts){ game.teams[defendingTeam()].pts+=pts; curCell().def+=pts; }
   function startPlay(){ resetGame(); newBatter(); newPitch(); }
   function newBatter(){ game.balls=0; game.strikes=0; }
 
@@ -222,11 +229,11 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; }
     if(game.balls>=4){ game.bases[0]=true; game.baseFlash=16; newBatter(); banner({label:'WALK · BATTER TO 1ST',col:C.cream,pts:0}); }
     else miniBanner('BALL — OUTSIDE NET · RUNNERS ADVANCE', C.blue, 0);
   }
-  function addStrike(kind){   // ball got past the batter INTO the castle net
-    game.strikes++; game.defScore+=GATE_PTS; game.netFlash=16; beep(150,0.3,'sawtooth',0.06);
+  function addStrike(kind){   // ball got past the batter INTO the castle net -> defence scores
+    game.strikes++; addDef(GATE_PTS); game.netFlash=16; beep(150,0.3,'sawtooth',0.06);
     if(game.strikes>=3){ // three into the net = the batter is out
       game.shake=12; recordOut(); game.lastView='bat'; newBatter();
-      banner({label:'STRIKE 3 · GATE +'+GATE_PTS,col:C.red,pts:GATE_PTS,gate:true});
+      banner({label:'STRIKE 3 · NET +'+GATE_PTS,col:C.red,pts:GATE_PTS,gate:true});
     } else miniBanner('STRIKE · INTO NET · +'+GATE_PTS+' DEF', C.red, GATE_PTS);
   }
 
@@ -252,7 +259,7 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; }
     const fielders = FORM_KEYS.map(k=>({x:FORM[k].x, y:FORM[k].y}));
     // ── force-advancing runners (treat every hit as a single) ──
     const pre = game.bases.slice();         // [1st,2nd,3rd] occupied
-    const R=[]; const mk=(from,to,bat)=>R.push({from,to,prog:0,isBatter:!!bat,out:false,cd:0});
+    const R=[]; const mk=(from,to,bat)=>R.push({from,to,prog:0,isBatter:!!bat,out:false,cd:0,jeop:false});
     mk(0,1,true);                                  // batter -> 1st (always forced)
     if(pre[0]) mk(1,2);                             // 1st -> 2nd (forced by batter)
     if(pre[1]) mk(2, pre[0]?3:2);                   // 2nd -> 3rd if forced, else holds
@@ -263,7 +270,7 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; }
       phase:'air', t:0, land, RUN:150, hitSpeed,
       ball:{sx:FHOME.x, sy:FHOME.y, tx, ty, gx:FHOME.x, gy:FHOME.y, h:0, vx:0, vy:0, vh:0, x:FHOME.x, y:FHOME.y, peak, over, fly, team:'off'},
       deflectFx:null, interceptT:0,
-      fielders, ctrl:0, depth, runners:R, lead, leadBase, throwBase:-1, throw:null, cover:-1
+      fielders, ctrl:0, depth, runners:R, lead, leadBase, throwBase:-1, throw:null, cover:-1, startOuts:game.outs
     };
     state='FIELD';
   }
@@ -285,36 +292,52 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; }
     f.throwBase=base; f.throw={sx:fc.x, sy:fc.y, x:fc.x, y:fc.y, t:0, dur:Math.max(14, Math.round(d/sp))};
     f.phase='throw'; beep(520,0.05,'square',0.06);
   }
+  // a runner is still in jeopardy (off a base) and can be put out
+  function offBase(r){ return !r.out && (r.jeop || (r.to>r.from && r.prog<1)); }
   function evalThrow(){ const f=game.field, base=f.throwBase, tp=basePos(base), cf=f.fielders[f.cover];
-    if(Math.hypot(cf.x-tp.x, cf.y-tp.y) > 20){ resolvePlay(null,false,'NO ONE COVERING — SAFE!'); return; }  // throw not received
-    let outIdx=-1; f.runners.forEach((r,i)=>{ if(!r.out && r.to===base && r.to>r.from && r.prog<1) outIdx=i; });
-    if(outIdx>=0){ f.runners[outIdx].out=true; resolvePlay('OUT AT '+baseName(base), true); }   // caught & beat the runner
-    else resolvePlay(null,false);                                                               // caught, but nobody to retire
+    if(Math.hypot(cf.x-tp.x, cf.y-tp.y) > 20){ resolvePlay(null,false,'NO ONE COVERING — SAFE!'); return; }  // nobody covering the bag
+    let outIdx=-1; f.runners.forEach((r,i)=>{ if(r.out) return;
+      if(r.jeop && r.from===base) outIdx=i;                                  // doubled off a base they'd left (tag up)
+      else if(!r.jeop && r.to===base && r.to>r.from && r.prog<1) outIdx=i;   // beat the forced runner to the bag
+    });
+    if(outIdx>=0){ f.runners[outIdx].out=true; recordOut(); beep(300,0.14);
+      // the play is NOT dead after one out — keep going for a double / triple play
+      if(game.outs<3 && f.runners.some(offBase)){ f.ctrl=f.cover; f.phase='held'; f.ball.team='def'; return; }
+      const n=game.outs-f.startOuts; resolvePlay(n>=3?'TRIPLE PLAY!':n>=2?'DOUBLE PLAY!':'OUT AT '+baseName(base), true);
+    } else resolvePlay(null,false);
   }
   function allRunnersDone(){ return game.field.runners.every(r=> r.to===r.from || r.prog>=1); }
   function safePlay(){ resolvePlay(null,false); }
 
   function resolvePlay(outLabel, wasOut, safeLabel){
     const f=game.field; let runs=0; const nb=[false,false,false];
-    f.runners.forEach(r=>{ if(r.out) return; if(r.to===4) runs++; else if(r.to>=1&&r.to<=3) nb[r.to-1]=true; });
+    f.runners.forEach(r=>{ if(r.out) return; const base=r.jeop?r.from:r.to;   // jeopardy survivors get back to their base
+      if(base===4) runs++; else if(base>=1&&base<=3) nb[base-1]=true; });
     game.bases=nb; game.baseFlash=18;
     if(runs>0) score(runs);
-    if(wasOut){ recordOut(); beep(300,0.14); newBatter(); banner({label:outLabel, col:C.cream, pts:0}); }
-    else { game.points+=10; chord([440,587],0.09); newBatter(); banner({label: safeLabel || (runs>0?'SAFE — RUN SCORES!':'BASE HIT'), col: runs>0?C.gold:C.cream, pts:10}); }
+    if(wasOut){ beep(300,0.14); newBatter(); banner({label:outLabel, col:C.cream, pts:0}); }   // outs already recorded at each out
+    else { addOff(10,0); chord([440,587],0.09); newBatter(); banner({label: safeLabel || (runs>0?'SAFE — RUN SCORES!':'BASE HIT'), col: runs>0?C.gold:C.cream, pts:10}); }
   }
-  function flyout(){ game.lastView='field'; recordOut(); newBatter(); beep(340,0.14);  // runners hold / tag up — bases unchanged
-    banner({label:'OUT! CAUGHT', col:C.cream, pts:0}); }
+  function flyout(){ const f=game.field; game.lastView='field'; recordOut(); beep(340,0.14);   // the batter is caught
+    let jeop=false; f.runners.forEach(r=>{ if(r.isBatter){ r.out=true; } else if(!r.out && r.to>r.from && r.prog<1){ r.jeop=true; jeop=true; } });
+    f.ball.team='def';
+    if(game.outs>=3 || !jeop){ newBatter(); banner({label:'OUT! CAUGHT', col:C.cream, pts:0}); return; }  // nobody to double up
+    // DOUBLE-PLAY chance: the catcher holds it; throw to a base a runner has left to tag them out
+    f.phase='held'; f.cover=f.ctrl; const cfc=f.fielders[f.ctrl]; f.ball.gx=cfc.x; f.ball.gy=cfc.y-6; f.ball.x=f.ball.gx; f.ball.y=f.ball.gy;
+  }
   function homeRun(){ let runs=1; game.bases.forEach(o=>{ if(o) runs++; }); game.bases=[false,false,false];
-    game.points+=100; score(runs); newBatter(); game.baseFlash=18; banner({label:'HOME RUN', col:C.gold, pts:100}); }
+    addOff(100,0); score(runs); newBatter(); game.baseFlash=18; banner({label:'HOME RUN', col:C.gold, pts:100}); }
 
-  function score(n){ game.runs+=n; game.points+=n*RUN_PTS; beep(1000,0.2,'square',0.08); }
+  function score(n){ addOff(n*RUN_PTS, n); beep(1000,0.2,'square',0.08); }   // n runs cross the plate
 
-  // ── outs / innings ────────────────────────────────────────────────
+  // ── outs / innings (3 outs = half over; 9 innings; sides swap) ─────
   function recordOut(){ game.outs++; }
   function banner(res){ if(res) game.result=res; state='RESULT'; game.resultTimer=66; }
   function afterResult(){
-    if(game.result && game.result.resume){ /* nothing */ }
-    if(game.outs>=3){ game.outs=0; game.bases=[false,false,false]; game.inning++;
+    if(game.outs>=3){
+      game.outs=0; game.bases=[false,false,false]; game.balls=0; game.strikes=0;
+      if(game.half==='top') game.half='bottom';                 // Team B comes up to bat
+      else { game.half='top'; game.inning++; }                  // back to Team A, next inning
       if(game.inning>game.maxInnings){ state='OVER'; chord([392,330,262,196],0.18); return; }
     }
     newBatter(); newPitch();
@@ -341,7 +364,7 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; }
       const f=game.field, b=f.ball; f.t++;
       if(f.interceptT>0) f.interceptT--; if(f.deflectFx && f.deflectFx.t>0) f.deflectFx.t--;
       // every forced runner advances toward its base
-      f.runners.forEach(r=>{ if(r.cd>0) r.cd--; if(r.to>r.from && !r.out && r.prog<1) r.prog=Math.min(1, r.prog+1/f.RUN); });
+      f.runners.forEach(r=>{ if(r.cd>0) r.cd--; if(!r.jeop && r.to>r.from && !r.out && r.prog<1) r.prog=Math.min(1, r.prog+1/f.RUN); });
       // auto-select the fielder nearest the ball — while it's in the air, use where it WILL land
       const tgx=(f.phase==='air')?b.tx:b.gx, tgy=(f.phase==='air')?b.ty:b.gy;
       let best=1e9; f.fielders.forEach((fl,i)=>{ const d=Math.hypot(fl.x-tgx,fl.y-tgy); if(d<best){best=d; f.ctrl=i;} });
@@ -408,6 +431,7 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; }
   function rr(x,y,w,h,r){ g.beginPath(); g.moveTo(x+r,y); g.arcTo(x+w,y,x+w,y+h,r); g.arcTo(x+w,y+h,x,y+h,r); g.arcTo(x,y+h,x,y,r); g.arcTo(x,y,x+w,y,r); g.closePath(); }
   function txt(s,x,y,col,size,align='left',bold=true){ g.fillStyle=col; g.font=(bold?'bold ':'')+size+"px 'Arial Black', Impact, sans-serif"; g.textAlign=align; g.textBaseline='middle'; g.fillText(s,x,y); }
   function ptxt(s,x,y,col,size,align='left'){ g.fillStyle=col; g.font=size+"px 'Press Start 2P', monospace"; g.textAlign=align; g.textBaseline='middle'; g.fillText(s,x,y); }
+  function stxt(s,x,y,col,size,align='left',bold){ g.fillStyle=col; g.font=(bold?'600 ':'')+size+"px 'Segoe UI', Arial, sans-serif"; g.textAlign=align; g.textBaseline='middle'; g.fillText(s,x,y); }   // small clean font
   function dot(x,y,r,on,col){ g.beginPath(); g.arc(x,y,r,0,7); g.fillStyle=on?col:'#10331f'; g.fill(); g.lineWidth=1.5; g.strokeStyle='#06170d'; g.stroke(); }
 
   // lighten/darken a #rrggbb colour
@@ -455,10 +479,6 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; }
   // ══ BAT CAMERA ════════════════════════════════════════════════════
   function drawBat(){
     stands(0,72);
-    // center scoreboard structure
-    g.fillStyle='#1d2733'; rr(196,2,120,52,6); g.fill(); g.strokeStyle='#0a0f15'; g.lineWidth=3; g.stroke();
-    g.fillStyle='#0d3a22'; rr(204,9,104,30,3); g.fill();
-    ptxt('CASTLE BALL',256,24,C.gold,9,'center');
     // grass fills the whole field
     const fg=g.createLinearGradient(0,72,0,H); fg.addColorStop(0,C.grassLo); fg.addColorStop(1,C.grassHi);
     g.fillStyle=fg; g.fillRect(0,72,W,H-72);
@@ -479,8 +499,8 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; }
     drawCatcher();
     drawPitch();
     drawNet();
-    drawScoreboards();
-    drawCountText();
+    drawLinescore();   // team line-score across the top
+    drawBSO();         // balls / strikes / outs, bottom-left
     drawBaseMini();
   }
 
@@ -598,27 +618,43 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; }
   // ── scoreboards / HUD ─────────────────────────────────────────────
   function panel(x,y,w,h){ const gd=g.createLinearGradient(0,y,0,y+h); gd.addColorStop(0,C.panelHi); gd.addColorStop(1,C.panel);
     g.fillStyle=gd; rr(x,y,w,h,8); g.fill(); g.strokeStyle=C.panelEdge; g.lineWidth=3; rr(x+2,y+2,w-4,h-4,6); g.stroke(); }
-  function drawScoreboards(){
-    // top-right: pitcher (raised up into the crowd)
-    panel(372,6,132,66);
-    txt('PITCHER',498,20,C.cream,11,'right'); txt('CPU',498,40,C.gold,15,'right');
-    txt('ERA --',498,58,C.cream,11,'right');
-    // mid-right: batter (lifted up off the batter's box)
-    panel(372,290,132,70);
-    txt('BATTER',498,304,C.cream,11,'right'); txt('P1',498,324,C.gold,15,'right');
-    txt('PTS '+game.points,498,344,C.cream,10,'right');
-    // B / S / O — moved to the bottom-left
+  function drawBSO(){
+    // balls / strikes / outs — bottom-left
     panel(8,286,118,80);
     const ox=40, oy=304;
     txt('B',ox-26,oy,C.yellow,13,'left');    for(let i=0;i<3;i++) dot(ox+i*22,oy,7,i<game.balls,C.yellow);
     txt('S',ox-26,oy+26,C.green,13,'left');  for(let i=0;i<2;i++) dot(ox+i*22,oy+26,7,i<game.strikes,C.green);
     txt('O',ox-26,oy+52,C.red,13,'left');    for(let i=0;i<2;i++) dot(ox+i*22,oy+52,7,i<game.outs,C.red);
   }
-  function drawCountText(){
-    // top-left: inning / runs (raised up into the crowd)
-    panel(8,6,158,54);
-    txt('INNING '+game.inning+'/'+game.maxInnings,16,24,C.cream,12,'left');
-    txt('RUNS '+game.runs,16,44,C.gold,14,'left');
+  // ── team line-score across the top (Image 3) ──
+  function drawLinescore(){
+    const x0=4, y0=2, BW=W-8, lblW=66, totW=92, colW=(BW-lblW-totW)/9;
+    g.fillStyle='rgba(8,9,14,0.86)'; rr(x0,y0,BW,80,5); g.fill();
+    g.strokeStyle='rgba(201,168,76,0.45)'; g.lineWidth=1.5; rr(x0,y0,BW,80,5); g.stroke();
+    stxt('CASTLE BALL II', x0+BW-6, y0+10, C.gold, 9, 'right', true);
+    // header: inning numbers + TOTAL
+    for(let i=1;i<=9;i++) stxt(''+i, x0+lblW+colW*(i-0.5), y0+10, i===game.inning?C.gold:'rgba(240,232,208,0.55)', 9,'center', i===game.inning);
+    stxt('CURRENT', x0+lblW+9*colW+totW/2, y0+9, C.gold, 8,'center');
+    stxt('TOTAL', x0+lblW+9*colW+totW/2, y0+18, C.gold, 8,'center');
+    // 4 rows: top half (A bats / B fields), bottom half (A fields / B bats)
+    const rows=[ ['A BAT', c=>c?c.pts:0, 'top', C.cream],
+                 ['B DEF', c=>c?c.def:0, 'top', C.blue],
+                 ['A DEF', c=>c?c.def:0, 'bot', C.blue],
+                 ['B BAT', c=>c?c.pts:0, 'bot', C.cream] ];
+    rows.forEach((row,ri)=>{ const ry=y0+30+ri*12, half=row[2];
+      stxt(row[0], x0+6, ry, row[3], 8,'left', true);
+      for(let i=1;i<=9;i++){
+        const reached=(i<game.inning)||(i===game.inning && (half==='top'||game.half==='bottom'));
+        const L=game.line[i], cell=reached?(''+row[1](L?L[half]:null)):'·';
+        stxt(cell, x0+lblW+colW*(i-0.5), ry, reached?row[3]:'rgba(240,232,208,0.3)', 9,'center');
+      }
+    });
+    // running totals (a team's pts = its offence when batting + its defence when fielding)
+    const tcx=x0+lblW+9*colW+totW/2;
+    stxt('A '+game.teams.A.pts+'pts '+game.teams.A.runs+'r', tcx, y0+36, C.cream, 9,'center', true);
+    stxt('B '+game.teams.B.pts+'pts '+game.teams.B.runs+'r', tcx, y0+60, C.cream, 9,'center', true);
+    // current half indicator
+    stxt('INNING '+game.inning+(game.half==='top'?' · TOP (A bats)':' · BOTTOM (B bats)'), x0+6, y0+74, C.gold, 8,'left', true);
   }
   function drawBaseMini(){
     const cx=58,cy=398,s=14;
@@ -723,18 +759,19 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; }
     if(!r.auto && game.resultTimer<=0 && Math.floor(game.t/16)%2===0) ptxt('▶ TAP / SPACE',256,252,C.gold,9,'center');
   }
   function drawTitle(){ drawBat(); g.fillStyle='rgba(8,9,14,0.72)'; g.fillRect(0,0,W,H);
-    txt('CASTLE BALL II',256,150,C.gold,40,'center'); txt('STADIUM SIM',256,196,C.cream,20,'center');
-    ptxt('Tap to throw the pitch, then bat —',256,244,C.cream,10,'center');
-    ptxt('then field the whole defense in unison.',256,266,C.cream,10,'center');
-    if(Math.floor(game.t/18)%2===0) ptxt('▶ PRESS SPACE / TAP',256,316,C.gold,12,'center');
-    ptxt('Balls · Strikes · Outs · 3 innings',256,360,'rgba(240,232,208,0.5)',8,'center');
+    txt('CASTLE BALL II',256,160,C.gold,40,'center'); txt('STADIUM SIM',256,206,C.cream,20,'center');
+    ptxt('Tap to throw the pitch, then bat —',256,250,C.cream,10,'center');
+    ptxt('then field, throw, turn double plays.',256,272,C.cream,10,'center');
+    if(Math.floor(game.t/18)%2===0) ptxt('▶ PRESS SPACE / TAP',256,320,C.gold,12,'center');
+    ptxt('Team A vs Team B · 9 innings',256,360,'rgba(240,232,208,0.5)',8,'center');
   }
-  function drawOver(){ drawBat(); g.fillStyle='rgba(8,9,14,0.8)'; g.fillRect(0,0,W,H);
-    txt('GAME OVER',256,150,C.red,40,'center');
-    txt('RUNS  '+game.runs,256,210,C.gold,22,'center');
-    txt('POINTS  '+game.points,256,244,C.cream,18,'center');
-    txt('GATE GOALS  '+game.defScore,256,276,C.red,14,'center');
-    if(Math.floor(game.t/18)%2===0) ptxt('▶ PLAY AGAIN',256,330,C.gold,12,'center');
+  function drawOver(){ drawBat(); g.fillStyle='rgba(8,9,14,0.82)'; g.fillRect(0,0,W,H);
+    txt('GAME OVER',256,140,C.red,38,'center');
+    const A=game.teams.A, B=game.teams.B, win = A.pts===B.pts?'TIE' : (A.pts>B.pts?'TEAM A WINS':'TEAM B WINS');
+    txt('TEAM A   '+A.pts+' pts   '+A.runs+' runs',256,196,C.cream,16,'center');
+    txt('TEAM B   '+B.pts+' pts   '+B.runs+' runs',256,224,C.cream,16,'center');
+    txt(win,256,266,C.gold,22,'center');
+    if(Math.floor(game.t/18)%2===0) ptxt('▶ PLAY AGAIN',256,320,C.gold,12,'center');
   }
 
   function render(){
