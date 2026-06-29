@@ -252,7 +252,7 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; }
     const fielders = FORM_KEYS.map(k=>({x:FORM[k].x, y:FORM[k].y}));
     // ── force-advancing runners (treat every hit as a single) ──
     const pre = game.bases.slice();         // [1st,2nd,3rd] occupied
-    const R=[]; const mk=(from,to,bat)=>R.push({from,to,prog:0,isBatter:!!bat,out:false});
+    const R=[]; const mk=(from,to,bat)=>R.push({from,to,prog:0,isBatter:!!bat,out:false,cd:0});
     mk(0,1,true);                                  // batter -> 1st (always forced)
     if(pre[0]) mk(1,2);                             // 1st -> 2nd (forced by batter)
     if(pre[1]) mk(2, pre[0]?3:2);                   // 2nd -> 3rd if forced, else holds
@@ -261,13 +261,20 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; }
     let lead=-1, leadBase=-1; R.forEach((r,i)=>{ if(r.to>r.from && r.to>leadBase){ leadBase=r.to; lead=i; } });
     game.field = {
       phase:'air', t:0, land, RUN:150, hitSpeed,
-      ball:{sx:FHOME.x, sy:FHOME.y, tx, ty, gx:FHOME.x, gy:FHOME.y, h:0, vx:0, vy:0, vh:0, x:FHOME.x, y:FHOME.y, peak, over, fly},
+      ball:{sx:FHOME.x, sy:FHOME.y, tx, ty, gx:FHOME.x, gy:FHOME.y, h:0, vx:0, vy:0, vh:0, x:FHOME.x, y:FHOME.y, peak, over, fly, team:'off'},
+      deflectFx:null, interceptT:0,
       fielders, ctrl:0, depth, runners:R, lead, leadBase, throwBase:-1, throw:null
     };
     state='FIELD';
   }
 
-  function grab(fc){ const f=game.field; f.phase='held'; f.ball.vx=f.ball.vy=f.ball.vh=f.ball.h=0; beep(360,0.05,'square',0.05); }
+  function grab(fc){ const f=game.field; const wasOff=f.ball.team==='off';
+    f.ball.team='def'; if(wasOff) f.interceptT=22;      // defence intercepts -> the ball is now theirs
+    f.phase='held'; f.ball.vx=f.ball.vy=f.ball.vh=f.ball.h=0; beep(300,0.06,'square',0.06);
+  }
+  // screen position of a runner (and the nearest defender to a point)
+  function runnerPos(r){ const a=basePos(r.from), bp=basePos(r.to); return {x:a.x+(bp.x-a.x)*r.prog, y:a.y+(bp.y-a.y)*r.prog}; }
+  function nearestDefender(x,y){ let best=1e9,bf=game.field.fielders[0]; game.field.fielders.forEach(fl=>{ const d=Math.hypot(fl.x-x,fl.y-y); if(d<best){best=d;bf=fl;} }); return bf; }
   function throwTo(base){ const f=game.field; if(f.phase!=='held') return;
     const fc=f.fielders[f.ctrl], tp=basePos(base), d=Math.hypot(tp.x-fc.x,tp.y-fc.y);
     const sp=(2/3)*f.hitSpeed;                                   // a throw travels 2/3 the speed of the hit
@@ -327,8 +334,9 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; }
     }
     else if(state==='FIELD'){
       const f=game.field, b=f.ball; f.t++;
+      if(f.interceptT>0) f.interceptT--; if(f.deflectFx && f.deflectFx.t>0) f.deflectFx.t--;
       // every forced runner advances toward its base
-      f.runners.forEach(r=>{ if(r.to>r.from && !r.out && r.prog<1) r.prog=Math.min(1, r.prog+1/f.RUN); });
+      f.runners.forEach(r=>{ if(r.cd>0) r.cd--; if(r.to>r.from && !r.out && r.prog<1) r.prog=Math.min(1, r.prog+1/f.RUN); });
       // auto-select the fielder nearest the ball — while it's in the air, use where it WILL land
       const tgx=(f.phase==='air')?b.tx:b.gx, tgy=(f.phase==='air')?b.ty:b.gy;
       let best=1e9; f.fielders.forEach((fl,i)=>{ const d=Math.hypot(fl.x-tgx,fl.y-tgy); if(d<best){best=d; f.ctrl=i;} });
@@ -359,7 +367,17 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; }
         const dx=b.gx-FHOME.x, dy=b.gy-FHOME.y, dd=Math.hypot(dx,dy)||1;
         if(dd>FRAD-10){ b.gx=FHOME.x+dx/dd*(FRAD-10); b.gy=FHOME.y+dy/dd*(FRAD-10); b.vx*=-0.5; b.vy*=-0.5; }   // caroms off the wall
         b.x=b.gx; b.y=b.gy-b.h;
-        if(Math.hypot(fc.x-b.gx, fc.y-b.gy)<19){ grab(fc); }   // get close -> AUTO-GRAB
+        // a baserunner (racket in hand) may DEFLECT the OFFENCE's own live ball — last touch was a team-mate.
+        if(b.team==='off'){
+          for(const r of f.runners){ if(r.out){continue;} const rp=runnerPos(r);
+            if(r.cd<=0 && b.h<22 && Math.hypot(rp.x-b.gx, rp.y-b.gy)<18){
+              const nd=nearestDefender(b.gx,b.gy); let ax=b.gx-nd.x, ay=b.gy-nd.y, am=Math.hypot(ax,ay)||1;  // away from the defence
+              const spd=3.2+f.depth*1.6; b.vx=ax/am*spd; b.vy=ay/am*spd; b.vh=2.6; if(b.h<1) b.h=1;
+              r.cd=42; f.deflectFx={x:rp.x,y:rp.y,t:18}; beep(560,0.05,'square',0.06); break;
+            }
+          }
+        }
+        if(Math.hypot(fc.x-b.gx, fc.y-b.gy)<19){ grab(fc); }   // a DEFENDER reaches it -> interception (ball turns over)
         else if(f.t > f.land + 600){ safePlay(); }             // long fallback only (never freeze the ball early)
       }
       else if(f.phase==='held'){
@@ -644,23 +662,30 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; }
         g.beginPath(); g.moveTo(b.tx-13,b.ty); g.lineTo(b.tx+13,b.ty); g.moveTo(b.tx,b.ty-13); g.lineTo(b.tx,b.ty+13); g.stroke(); }
       // the base being thrown to lights up red
       if(f.phase==='throw' && f.throwBase>=1){ const tp=basePos(f.throwBase); g.strokeStyle='rgba(212,69,58,0.9)'; g.lineWidth=3; g.beginPath(); g.arc(tp.x,tp.y,12,0,7); g.stroke(); }
-      // every offensive runner (drawn under fielders)
-      f.runners.forEach(r=>{ if(r.out) return; const a=basePos(r.from), bp=basePos(r.to);
-        const rx=a.x+(bp.x-a.x)*r.prog, ry=a.y+(bp.y-a.y)*r.prog;
-        player(rx,ry,C.homeJ,C.homePant,1, r.isBatter?99:50); });
+      // every offensive runner — they carry RACKETS and can deflect their own team's live ball
+      f.runners.forEach(r=>{ if(r.out) return; const rp=runnerPos(r);
+        player(rp.x,rp.y,C.homeJ,C.homePant,1, r.isBatter?99:50);
+        g.strokeStyle='#6a4a2a'; g.lineWidth=2; g.beginPath(); g.moveTo(rp.x+5,rp.y-1); g.lineTo(rp.x+11,rp.y-8); g.stroke();        // racket handle
+        g.strokeStyle=C.gold; g.lineWidth=1.5; g.beginPath(); g.ellipse(rp.x+13,rp.y-10,3.2,4.6,0.5,0,7); g.stroke();              // racket head
+      });
       // 9 fielders; the controlled (nearest) one gets a marker
       f.fielders.forEach((fl,i)=>{
         player(fl.x,fl.y,C.awayJ,C.awayPant,1,i);
         if(i===f.ctrl && f.phase!=='throw'){ g.strokeStyle=C.yellow; g.lineWidth=2; g.beginPath(); g.arc(fl.x,fl.y-4,16,0,7); g.stroke();
           ptxt('▼',fl.x,fl.y-30,C.yellow,9,'center'); }
       });
-      // ground shadow + lofted ball
+      // ground shadow + lofted ball, RINGED by who owns it (gold = offence, red = defence)
       const sh=Math.max(7-Math.min(b.h/45,4.5),2.5);
       g.fillStyle='rgba(0,0,0,0.32)'; g.beginPath(); g.ellipse(b.gx,b.gy,sh,sh*0.42,0,0,7); g.fill();
       if(!(b.over && b.y<-14)){
         const bg=g.createRadialGradient(b.x-2,b.y-2,1,b.x,b.y,6); bg.addColorStop(0,C.ball); bg.addColorStop(1,C.ballSh);
         g.fillStyle=bg; g.beginPath(); g.arc(b.x,b.y,6,0,7); g.fill();
+        const own=b.team==='def'?C.red:C.gold; g.strokeStyle=own; g.lineWidth=2; g.beginPath(); g.arc(b.x,b.y,8.5,0,7); g.stroke();
+        if(f.phase==='loose'||f.phase==='held'){ ptxt(b.team==='def'?'DEF':'OFF', b.x, b.y-15, own, 7, 'center'); }
       }
+      // deflection / interception cues
+      if(f.deflectFx && f.deflectFx.t>0){ const d=f.deflectFx; g.strokeStyle='rgba(201,168,76,'+(d.t/18)+')'; g.lineWidth=2; g.beginPath(); g.arc(d.x,d.y,(18-d.t)+6,0,7); g.stroke(); ptxt('DEFLECT!',d.x,d.y-24,C.gold,8,'center'); }
+      if(f.interceptT>0 && Math.floor(game.t/4)%2===0){ ptxt('INTERCEPTED!',b.x,b.y-28,C.red,9,'center'); }
       // the thrown ball
       if(f.phase==='throw' && f.throw){ const tw=f.throw; g.fillStyle=C.ball; g.beginPath(); g.arc(tw.x,tw.y,4,0,7); g.fill(); }
       // when a fielder holds the ball, show which arrow throws to which base
@@ -670,10 +695,12 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; }
         if(Math.floor(game.t/16)%2===0) ptxt('THROW ▸ 1ST ▴ 2ND ◂ 3RD ▾ HOME',256,52,C.gold,8,'center');
       }
     }
-    const hint = (game.field && game.field.phase==='held') ? 'GOT IT! ◂3RD ▴2ND ▸1ST ▾HOME'
-               : (game.field && game.field.phase==='throw') ? 'THROW…'
+    const ph=game.field&&game.field.phase, def=game.field&&game.field.ball.team==='def';
+    const hint = (ph==='held') ? 'GOT IT! ◂3RD ▴2ND ▸1ST ▾HOME'
+               : (ph==='throw') ? 'THROW…'
+               : (ph==='loose') ? (def?'DEF BALL — close it out: grab & throw':'OFF BALL — runners deflect · chase to intercept')
                : '◂▸▴▾ CHASE THE BALL · GRAB IT';
-    panel(8,40,266,42); txt(hint,16,61,C.cream,10,'left');
+    panel(8,40,300,42); txt(hint,16,61,def?C.red:C.cream, ph==='loose'?9:10,'left');
   }
 
   // ── banner + screens ──────────────────────────────────────────────
