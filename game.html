@@ -326,8 +326,9 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; }
       const f=game.field, b=f.ball; f.t++;
       // every forced runner advances toward its base
       f.runners.forEach(r=>{ if(r.to>r.from && !r.out && r.prog<1) r.prog=Math.min(1, r.prog+1/f.RUN); });
-      // the fielder NEAREST the ball is auto-controlled (no manual selection)
-      let best=1e9; f.fielders.forEach((fl,i)=>{ const d=Math.hypot(fl.x-b.gx,fl.y-b.gy); if(d<best){best=d; f.ctrl=i;} });
+      // auto-select the fielder nearest the ball — while it's in the air, use where it WILL land
+      const tgx=(f.phase==='air')?b.tx:b.gx, tgy=(f.phase==='air')?b.ty:b.gy;
+      let best=1e9; f.fielders.forEach((fl,i)=>{ const d=Math.hypot(fl.x-tgx,fl.y-tgy); if(d<best){best=d; f.ctrl=i;} });
       const fc=f.fielders[f.ctrl], sp=3.4;
       if(f.phase==='air' || f.phase==='loose'){       // chase the ball (arrows pick a base once held)
         if(keys['arrowleft']||keys['a']) fc.x-=sp;
@@ -350,18 +351,17 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; }
         }
       }
       else if(f.phase==='loose'){
-        b.gx+=b.vx; b.gy+=b.vy; b.vx*=0.975; b.vy*=0.975;
-        b.vh-=0.5; b.h+=b.vh; if(b.h<=0){ b.h=0; b.vh=-b.vh*0.5; if(Math.abs(b.vh)<0.9) b.vh=0; }   // bounce
+        b.gx+=b.vx; b.gy+=b.vy; b.vx*=0.987; b.vy*=0.987;       // keeps rolling in the direction it was hit
+        b.vh-=0.45; b.h+=b.vh; if(b.h<=0){ b.h=0; b.vh=-b.vh*0.6; if(Math.abs(b.vh)<0.7) b.vh=0; }   // realistic decaying bounce
         const dx=b.gx-FHOME.x, dy=b.gy-FHOME.y, dd=Math.hypot(dx,dy)||1;
-        if(dd>FRAD-10){ b.gx=FHOME.x+dx/dd*(FRAD-10); b.gy=FHOME.y+dy/dd*(FRAD-10); b.vx*=-0.4; b.vy*=-0.4; }   // off the wall
+        if(dd>FRAD-10){ b.gx=FHOME.x+dx/dd*(FRAD-10); b.gy=FHOME.y+dy/dd*(FRAD-10); b.vx*=-0.5; b.vy*=-0.5; }   // caroms off the wall
         b.x=b.gx; b.y=b.gy-b.h;
-        const dctrl=Math.hypot(fc.x-b.gx, fc.y-b.gy);
-        if(dctrl<16 && b.h<16){ grab(fc); }            // a defender grabs the live ball
-        else if(allRunnersDone()){ safePlay(); }       // loose too long -> everyone safe
+        if(Math.hypot(fc.x-b.gx, fc.y-b.gy)<19){ grab(fc); }   // get close -> AUTO-GRAB
+        else if(f.t > f.land + 600){ safePlay(); }             // long fallback only (never freeze the ball early)
       }
       else if(f.phase==='held'){
-        b.gx=fc.x; b.gy=fc.y-6; b.x=b.gx; b.y=b.gy;    // ball in the glove
-        if(allRunnersDone()) safePlay();               // held too long -> runners safe
+        b.gx=fc.x; b.gy=fc.y-6; b.x=b.gx; b.y=b.gy;            // ball in the glove — you MUST throw to a base
+        if(f.t > f.land + 1000){ safePlay(); }                // very long safety fallback only
       }
       else if(f.phase==='throw'){
         const tw=f.throw, tp=basePos(f.throwBase); tw.t++; const pr=Math.min(tw.t/tw.dur,1);
