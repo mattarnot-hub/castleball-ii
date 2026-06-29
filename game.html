@@ -360,7 +360,8 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; }
         b.x=b.gx; b.y=b.gy-b.h;
         const dctrl=Math.hypot(fc.x-b.gx, fc.y-b.gy);
         if(b.over && f.t>=f.land){ homeRun(); }                                   // home run
-        else if(b.fly && !b.over && pr>0.62 && b.h<26 && dctrl<26){ flyout(); }   // CAUGHT — fielder under the descending fly
+        // CAUGHT only if well under it: the ball must be ≥33% inside the 16px yellow circle (≤ ~10.7px from its centre)
+        else if(b.fly && !b.over && pr>0.55 && b.h<28 && dctrl < 16*(1-0.33)){ flyout(); }
         else if(f.t>=f.land){ // ball reaches the ground and stays LIVE — bounces/rolls outward
           const dx=b.tx-FHOME.x, dy=b.ty-FHOME.y, dd=Math.hypot(dx,dy)||1, spd=1.6+f.depth*2.6;
           b.gx=b.tx; b.gy=b.ty; b.vx=dx/dd*spd; b.vy=dy/dd*spd; b.vh=3.4+f.depth*2.2; b.h=0; f.phase='loose';
