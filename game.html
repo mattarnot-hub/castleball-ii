@@ -247,6 +247,8 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; }
     const tx = FHOME.x + rad*Math.cos(ang), ty = FHOME.y + rad*Math.sin(ang);
     const peak = 14 + depth*250;            // grounders ride low, fly balls loft high
     const fly = peak>95;
+    const land = (95 + depth*95)|0;
+    const hitSpeed = Math.hypot(rad/land, peak*Math.PI/land);   // batted-ball launch speed (px/frame)
     const fielders = FORM_KEYS.map(k=>({x:FORM[k].x, y:FORM[k].y}));
     // ── force-advancing runners (treat every hit as a single) ──
     const pre = game.bases.slice();         // [1st,2nd,3rd] occupied
@@ -258,7 +260,7 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; }
     // lead force base = the most advanced runner that must move
     let lead=-1, leadBase=-1; R.forEach((r,i)=>{ if(r.to>r.from && r.to>leadBase){ leadBase=r.to; lead=i; } });
     game.field = {
-      phase:'air', t:0, land:(95 + depth*95)|0, RUN:150,
+      phase:'air', t:0, land, RUN:150, hitSpeed,
       ball:{sx:FHOME.x, sy:FHOME.y, tx, ty, gx:FHOME.x, gy:FHOME.y, h:0, vx:0, vy:0, vh:0, x:FHOME.x, y:FHOME.y, peak, over, fly},
       fielders, ctrl:0, depth, runners:R, lead, leadBase, throwBase:-1, throw:null
     };
@@ -268,7 +270,8 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; }
   function grab(fc){ const f=game.field; f.phase='held'; f.ball.vx=f.ball.vy=f.ball.vh=f.ball.h=0; beep(360,0.05,'square',0.05); }
   function throwTo(base){ const f=game.field; if(f.phase!=='held') return;
     const fc=f.fielders[f.ctrl], tp=basePos(base), d=Math.hypot(tp.x-fc.x,tp.y-fc.y);
-    f.throwBase=base; f.throw={sx:fc.x, sy:fc.y, x:fc.x, y:fc.y, t:0, dur:Math.max(10,(d/13)|0)};
+    const sp=(2/3)*f.hitSpeed;                                   // a throw travels 2/3 the speed of the hit
+    f.throwBase=base; f.throw={sx:fc.x, sy:fc.y, x:fc.x, y:fc.y, t:0, dur:Math.max(14, Math.round(d/sp))};
     f.phase='throw'; beep(520,0.05,'square',0.06);
   }
   function evalThrow(){ const f=game.field, base=f.throwBase;
