@@ -219,15 +219,14 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; }
   }
   function miniBanner(label,col,pts){ game.lastView='bat'; game.result={label,col,pts:pts||0,auto:true}; state='RESULT'; game.resultTimer=46; }
 
-  // ball misses the net (outside): a wild pitch — every runner on base moves up one
-  function advanceRunnersOneBase(){
-    const b=game.bases; let runs=0; if(b[2]) runs++;
-    game.bases=[false, b[0], b[1]]; game.baseFlash=16; if(runs>0) score(runs);
-  }
-  function addBall(){   // pitch passed OUTSIDE the net
-    game.balls++; beep(360,0.06); advanceRunnersOneBase();
-    if(game.balls>=4){ game.bases[0]=true; game.baseFlash=16; newBatter(); banner({label:'WALK · BATTER TO 1ST',col:C.cream,pts:0}); }
-    else miniBanner('BALL — OUTSIDE NET · RUNNERS ADVANCE', C.blue, 0);
+  function addBall(){   // pitch passed OUTSIDE the castle net — a ball (count sticks)
+    game.balls++; beep(360,0.06);
+    if(game.balls>=4){   // 4 balls = WALK: batter to 1st, forced runners pushed up (loaded -> a run scores)
+      const b=game.bases;
+      if(b[0]){ if(b[1]){ if(b[2]) score(1); b[2]=true; } b[1]=true; }
+      b[0]=true; game.baseFlash=16; newBatter();
+      banner({label:'WALK · BATTER TO 1ST',col:C.cream,pts:0});
+    } else miniBanner('BALL  '+game.balls+' / 4', C.blue, 0);
   }
   function addStrike(kind){   // ball got past the batter INTO the castle net -> defence scores
     game.strikes++; addDef(GATE_PTS); game.netFlash=16; beep(150,0.3,'sawtooth',0.06);
@@ -335,12 +334,12 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; }
   function banner(res){ if(res) game.result=res; state='RESULT'; game.resultTimer=66; }
   function afterResult(){
     if(game.outs>=3){
-      game.outs=0; game.bases=[false,false,false]; game.balls=0; game.strikes=0;
-      if(game.half==='top') game.half='bottom';                 // Team B comes up to bat
-      else { game.half='top'; game.inning++; }                  // back to Team A, next inning
+      game.outs=0; game.bases=[false,false,false]; newBatter();  // fresh count for the new half
+      if(game.half==='top') game.half='bottom';                  // Team B comes up to bat
+      else { game.half='top'; game.inning++; }                   // back to Team A, next inning
       if(game.inning>game.maxInnings){ state='OVER'; chord([392,330,262,196],0.18); return; }
     }
-    newBatter(); newPitch();
+    newPitch();   // same at-bat continues — balls & strikes persist (reset only by walk/strikeout/hit/out)
   }
 
   // ── update ────────────────────────────────────────────────────────
@@ -374,7 +373,7 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; }
         if(keys['arrowright']||keys['d']) fc.x+=sp;
         if(keys['arrowup']||keys['w']) fc.y-=sp;
         if(keys['arrowdown']||keys['s']) fc.y+=sp;
-        fc.x=Math.max(20,Math.min(492,fc.x)); fc.y=Math.max(70,Math.min(412,fc.y));
+        fc.x=Math.max(6,Math.min(506,fc.x)); fc.y=Math.max(24,Math.min(420,fc.y));   // can roam the whole field (deep + corners)
       }
       if(f.phase==='air'){
         const pr=Math.min(f.t/f.land,1);
@@ -747,7 +746,7 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; }
                : (ph==='throw') ? 'THROW…'
                : (ph==='loose') ? (def?'DEF BALL — close it out: grab & throw':'OFF BALL — runners deflect · chase to intercept')
                : '◂▸▴▾ CHASE THE BALL · GRAB IT';
-    panel(8,40,300,42); txt(hint,16,61,def?C.red:C.cream, ph==='loose'?9:10,'left');
+    panel(86,6,340,38); txt(hint,256,25,def?C.red:C.cream, ph==='loose'?9:10,'center');   // centred above the field
   }
 
   // ── banner + screens ──────────────────────────────────────────────
