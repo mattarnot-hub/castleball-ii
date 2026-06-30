@@ -88,7 +88,7 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; }
     panel:'#0e3d24', panelHi:'#1a5c38', panelEdge:'#f2efe0',
     gold:'#C9A84C', cream:'#F0E8D0', dark:'#08090E', wht:'#ffffff',
     red:'#d4453a', yellow:'#e8c84a', green:'#54c45a',
-    homeJ:'#3f7fd0', homeJd:'#2a5da0', homePant:'#bcd0ec', awayJ:'#d9d9e2', awayPant:'#c0c0cc',
+    homeJ:'#3f7fd0', homeJd:'#2a5da0', homePant:'#bcd0ec', awayJ:'#d9d9e2', awayJd:'#8e8e9c', awayPant:'#c0c0cc',
     skin:'#e8b48a', navy:'#22314f', ball:'#fbfbf4', ballSh:'#c7c7bd', shadow:'rgba(0,0,0,0.28)'
   };
 
@@ -436,6 +436,14 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; }
   // lighten/darken a #rrggbb colour
   function shade(hex,f){ const n=parseInt(hex.slice(1),16), c=v=>Math.max(0,Math.min(255,Math.round(v)));
     return 'rgb('+c(((n>>16)&255)*f)+','+c(((n>>8)&255)*f)+','+c((n&255)*f)+')'; }
+  // team colours follow the half: Team A (bats top) is BLUE, Team B (bats bottom) is WHITE.
+  // so the OFFENCE is blue in the top / white in the bottom, and the DEFENCE is the opposite.
+  function batJersey(){ return game.half==='top'?C.homeJ:C.awayJ; }
+  function batPant(){   return game.half==='top'?C.homePant:C.awayPant; }
+  function batJd(){     return game.half==='top'?C.homeJd:C.awayJd; }
+  function fieldJersey(){ return game.half==='top'?C.awayJ:C.homeJ; }
+  function fieldPant(){   return game.half==='top'?C.awayPant:C.homePant; }
+  function fieldJd(){     return game.half==='top'?C.awayJd:C.homeJd; }
   // soft-shaded head with a ball cap (local coords)
   function drawHead(cx,cy,r,cap){
     const hg=g.createRadialGradient(cx-r*0.35,cy-r*0.35,1,cx,cy,r);
@@ -545,14 +553,15 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; }
     if(lit){ g.fillStyle=C.red; g.fillRect(-2,-2,4,4);} g.restore(); }
 
   function drawPitcher(x,y,wind){
+    const J=fieldJersey(), P=fieldPant();   // pitcher is on the fielding (defence) team
     g.save(); g.translate(x,y); g.lineJoin='round';
     g.fillStyle='rgba(0,0,0,0.28)'; g.beginPath(); g.ellipse(0,26,17,5,0,0,7); g.fill();
-    g.fillStyle=shade(C.awayPant,0.95); rr(-7,12,6,15,3); g.fill(); rr(1,12,6,15,3); g.fill();    // legs
+    g.fillStyle=shade(P,0.95); rr(-7,12,6,15,3); g.fill(); rr(1,12,6,15,3); g.fill();    // legs
     g.fillStyle='#15151c'; g.beginPath(); g.ellipse(-4,27,4,2.2,0,0,7); g.fill(); g.beginPath(); g.ellipse(4,27,4,2.2,0,0,7); g.fill();
-    g.fillStyle=shade(C.awayJ,0.82); if(wind){ rr(8,-18,5,16,2.5); } else { rr(8,-4,5,13,2.5); } g.fill();   // back arm
-    const jg=g.createLinearGradient(-10,0,10,0); jg.addColorStop(0,shade(C.awayJ,1.12)); jg.addColorStop(0.55,C.awayJ); jg.addColorStop(1,shade(C.awayJ,0.78));
+    g.fillStyle=shade(J,0.82); if(wind){ rr(8,-18,5,16,2.5); } else { rr(8,-4,5,13,2.5); } g.fill();   // back arm
+    const jg=g.createLinearGradient(-10,0,10,0); jg.addColorStop(0,shade(J,1.12)); jg.addColorStop(0.55,J); jg.addColorStop(1,shade(J,0.78));
     g.fillStyle=jg; rr(-9,-6,18,19,7); g.fill(); g.strokeStyle='rgba(0,0,0,0.25)'; g.lineWidth=1; rr(-9,-6,18,19,7); g.stroke();   // torso
-    g.fillStyle=shade(C.awayJ,1.04);
+    g.fillStyle=shade(J,1.04);
     if(wind){ rr(-13,-18,5,16,2.5); g.fill(); g.fillStyle=C.ball; g.beginPath(); g.arc(-10.5,-18,3,0,7); g.fill(); }   // front arm + ball
     else { rr(-13,-4,5,13,2.5); g.fill(); g.fillStyle=shade(C.skin,0.92); g.beginPath(); g.arc(-10.5,9,2.2,0,7); g.fill(); }
     g.fillStyle=shade(C.skin,0.9); rr(-2,-11,4,4,1.4); g.fill();      // neck
@@ -569,17 +578,17 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; }
   }
 
   function drawBatter(){
-    const bx=game.racketX, by=400;     // slides across the box to meet the ball
+    const bx=game.racketX, by=400, J=batJersey(), P=batPant(), Jd=batJd();   // batter is on the offence team
     g.save(); g.translate(bx,by); g.lineJoin='round';
     g.fillStyle='rgba(0,0,0,0.3)'; g.beginPath(); g.ellipse(0,24,17,5,0,0,7); g.fill();
-    g.fillStyle=shade(C.homePant,0.96); rr(-10,10,7,20,3); g.fill(); rr(3,10,7,20,3); g.fill();   // stance legs
+    g.fillStyle=shade(P,0.96); rr(-10,10,7,20,3); g.fill(); rr(3,10,7,20,3); g.fill();   // stance legs
     g.fillStyle='#15151c'; g.beginPath(); g.ellipse(-6,30,4.5,2.4,0,0,7); g.fill(); g.beginPath(); g.ellipse(6,30,4.5,2.4,0,0,7); g.fill();
-    const jg=g.createLinearGradient(-11,0,11,0); jg.addColorStop(0,shade(C.homeJ,1.14)); jg.addColorStop(0.55,C.homeJ); jg.addColorStop(1,shade(C.homeJ,0.76));
+    const jg=g.createLinearGradient(-11,0,11,0); jg.addColorStop(0,shade(J,1.14)); jg.addColorStop(0.55,J); jg.addColorStop(1,shade(J,0.76));
     g.fillStyle=jg; rr(-10,-12,20,24,8); g.fill(); g.strokeStyle='rgba(0,0,0,0.28)'; g.lineWidth=1; rr(-10,-12,20,24,8); g.stroke();   // torso
-    g.fillStyle=shade(C.homeJ,1.03); rr(2,-10,6,12,3); g.fill();                          // lead arm
+    g.fillStyle=shade(J,1.03); rr(2,-10,6,12,3); g.fill();                          // lead arm
     g.fillStyle=shade(C.skin,0.95); g.beginPath(); g.arc(9.5,-1,2.6,0,7); g.fill();       // hands
     g.fillStyle=shade(C.skin,0.9); rr(-2.4,-18,4.8,5,1.6); g.fill();                      // neck
-    drawHead(0,-20,7,C.homeJd);                                                            // batting helmet
+    drawHead(0,-20,7,Jd);                                                                  // batting helmet
     g.restore();
     drawRacket(bx,by-6);
   }
@@ -593,11 +602,11 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; }
     g.restore();
   }
   function drawCatcher(){
-    const cx=256,cy=430;
+    const cx=256,cy=430, P=fieldPant(), Jd=fieldJd();   // catcher is on the fielding (defence) team
     g.save(); g.translate(cx,cy); g.lineJoin='round';
     g.fillStyle='rgba(0,0,0,0.3)'; g.beginPath(); g.ellipse(0,16,18,5,0,0,7); g.fill();
-    g.fillStyle=shade(C.homePant,0.92); rr(-13,6,9,12,4); g.fill(); rr(4,6,9,12,4); g.fill();         // crouched shins
-    const cg=g.createLinearGradient(-16,0,16,0); cg.addColorStop(0,shade(C.homeJd,1.12)); cg.addColorStop(1,shade(C.homeJd,0.8));
+    g.fillStyle=shade(P,0.92); rr(-13,6,9,12,4); g.fill(); rr(4,6,9,12,4); g.fill();         // crouched shins
+    const cg=g.createLinearGradient(-16,0,16,0); cg.addColorStop(0,shade(Jd,1.12)); cg.addColorStop(1,shade(Jd,0.8));
     g.fillStyle=cg; rr(-15,-10,30,22,10); g.fill(); g.strokeStyle='rgba(0,0,0,0.28)'; g.lineWidth=1; rr(-15,-10,30,22,10); g.stroke(); // chest protector
     g.fillStyle='#8f8f9c'; g.beginPath(); g.arc(0,-16,9,0,7); g.fill();                                // helmet (back of head)
     g.fillStyle=shade('#8f8f9c',1.2); g.beginPath(); g.arc(-3,-18,3,0,7); g.fill();
@@ -732,14 +741,15 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; }
       if(f.phase==='throw' && f.throwBase>=1){ const tp=basePos(f.throwBase); g.strokeStyle='rgba(212,69,58,0.9)'; g.lineWidth=3; g.beginPath(); g.arc(tp.x,tp.y,12,0,7); g.stroke();
         if(f.cover>=0){ const cf=f.fielders[f.cover]; g.strokeStyle=C.blue; g.lineWidth=2; g.beginPath(); g.arc(cf.x,cf.y-4,15,0,7); g.stroke(); ptxt('COVER',cf.x,cf.y-30,C.blue,7,'center'); } }
       // every offensive runner — they carry RACKETS and can deflect their own team's live ball
+      const oJ=batJersey(), oP=batPant(), dJ=fieldJersey(), dP=fieldPant();   // offence vs defence colours for this half
       f.runners.forEach(r=>{ if(r.out) return; const rp=runnerPos(r);
-        player(rp.x,rp.y,C.homeJ,C.homePant,1, r.isBatter?99:50);
+        player(rp.x,rp.y,oJ,oP,1, r.isBatter?99:50);
         g.strokeStyle='#6a4a2a'; g.lineWidth=2; g.beginPath(); g.moveTo(rp.x+5,rp.y-1); g.lineTo(rp.x+11,rp.y-8); g.stroke();        // racket handle
         g.strokeStyle=C.gold; g.lineWidth=1.5; g.beginPath(); g.ellipse(rp.x+13,rp.y-10,3.2,4.6,0.5,0,7); g.stroke();              // racket head
       });
       // 9 fielders; the controlled (nearest) one gets a marker
       f.fielders.forEach((fl,i)=>{
-        player(fl.x,fl.y,C.awayJ,C.awayPant,1,i);
+        player(fl.x,fl.y,dJ,dP,1,i);
         if(i===f.ctrl && f.phase!=='throw'){ g.strokeStyle=C.yellow; g.lineWidth=2; g.beginPath(); g.arc(fl.x,fl.y-4,16,0,7); g.stroke();
           ptxt('▼',fl.x,fl.y-30,C.yellow,9,'center'); }
       });
