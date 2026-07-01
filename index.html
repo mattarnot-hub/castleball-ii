@@ -820,12 +820,24 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
     if(r.pts) txt('+'+r.pts+(r.gate?' DEF':' PTS'),256,246,C.cream,13,'center');
     if(!r.auto && game.resultTimer<=0 && Math.floor(game.t/16)%2===0) ptxt('▶ TAP / SPACE',256,252,C.gold,9,'center');
   }
-  function drawTitle(){ drawBat(); g.fillStyle='rgba(8,9,14,0.72)'; g.fillRect(0,0,W,H);
-    txt('CASTLE BALL II',256,160,C.gold,40,'center'); txt('STADIUM SIM',256,206,C.cream,20,'center');
-    ptxt('Tap to throw the pitch, then bat —',256,250,C.cream,10,'center');
-    ptxt('then field, throw, turn double plays.',256,272,C.cream,10,'center');
-    if(Math.floor(game.t/18)%2===0) ptxt('▶ PRESS SPACE / TAP',256,320,C.gold,12,'center');
-    ptxt('Team A vs Team B · 9 innings',256,360,'rgba(240,232,208,0.5)',8,'center');
+  function drawTitle(){ drawBat(); g.fillStyle='rgba(8,9,14,0.84)'; g.fillRect(0,0,W,H);
+    txt('CASTLE BALL II',256,52,C.gold,32,'center'); stxt('STADIUM SIM',256,80,C.cream,14,'center',true);
+    // ── HOW TO PLAY card ──
+    panel(48,100,416,268);
+    stxt('HOW  TO  PLAY',256,118,C.gold,13,'center',true);
+    stxt('BATTING',72,144,C.blue,11,'left',true);
+    stxt('1.  Tap  —  throw the pitch',86,162,C.cream,11);
+    stxt('2.  Drag your thumb  —  aim the racket',86,180,C.cream,11);
+    stxt('3.  Tap again  —  swing',86,198,C.cream,11);
+    stxt('FIELDING',72,224,C.green,11,'left',true);
+    stxt('•  Drag  —  run the nearest fielder to the ball',86,242,C.cream,11);
+    stxt('•  Catch a fly, or grab it and swipe to a base:',86,260,C.cream,11);
+    stxt('↑ 2nd      ← 3rd      → 1st      ↓ home',256,282,C.gold,12,'center',true);
+    g.strokeStyle='rgba(201,168,76,0.25)'; g.lineWidth=1; g.beginPath(); g.moveTo(70,300); g.lineTo(442,300); g.stroke();
+    stxt('9 innings · Team A (blue) bats, Team B (white) fields — and swap.',256,314,'rgba(240,232,208,0.7)',9.5,'center');
+    stxt('Ball outside the net = ball (4 = walk).  Into the net = strike (3 = out).',256,332,'rgba(240,232,208,0.62)',9,'center');
+    stxt('Keyboard also works: Space to pitch / swing, arrow keys to move & throw.',256,352,'rgba(240,232,208,0.5)',9,'center');
+    if(Math.floor(game.t/16)%2===0) ptxt('▶  TAP  /  PRESS SPACE  TO START',256,398,C.gold,11,'center');
   }
   function drawOver(){ drawBat(); g.fillStyle='rgba(8,9,14,0.82)'; g.fillRect(0,0,W,H);
     txt('GAME OVER',256,140,C.red,38,'center');
