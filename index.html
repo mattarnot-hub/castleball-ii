@@ -163,7 +163,9 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
     // pitcher can target ANY x: inside the box = hittable strike, outside = ball
     const tx = strike ? (RACKET_MIN+6 + Math.random()*(RACKET_MAX-RACKET_MIN-12))
                       : (Math.random()<0.5 ? BOX_X0-16-Math.random()*14 : BOX_X1+16+Math.random()*14);
-    game.pitch = { tx, strike, t:0, dur:(100 - Math.min(game.outs+(game.inning-1)*3,6)*4)|0, released:false };
+    // variable, unpredictable pitch speed: 50 mph (slowest) .. 75 mph (fastest)
+    const mph = 50 + Math.random()*25;
+    game.pitch = { tx, strike, t:0, dur:Math.round(5000/mph), mph:Math.round(mph), released:false };
     game.ptimer=0; state='PITCH';
   }
 
@@ -390,8 +392,14 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
     else if(state==='FIELD'){
       const f=game.field, b=f.ball; f.t++;
       if(f.interceptT>0) f.interceptT--; if(f.deflectFx && f.deflectFx.t>0) f.deflectFx.t--;
-      // every forced runner advances toward its base
-      f.runners.forEach(r=>{ if(r.cd>0) r.cd--; if(!r.jeop && r.to>r.from && !r.out && r.prog<1) r.prog=Math.min(1, r.prog+1/f.RUN); });
+      // baserunners: take a lead, commit once it lands, or hustle BACK to tag up if it's caught
+      f.runners.forEach(r=>{ if(r.cd>0) r.cd--;
+        if(r.jeop){ if(r.prog>0){ r.prog=Math.max(0, r.prog-1/f.RUN); if(r.prog<=0){ r.jeop=false; r.to=r.from; } } }  // run back to the bag
+        else if(r.to>r.from && !r.out && r.prog<1){
+          const cap=(f.phase==='air' && b.fly)?0.5:1;   // only a cautious lead on a fly until the ball lands
+          r.prog=Math.min(cap, r.prog+1/f.RUN);
+        }
+      });
       // auto-select the fielder nearest the ball — while it's in the air, use where it WILL land
       const tgx=(f.phase==='air')?b.tx:b.gx, tgy=(f.phase==='air')?b.ty:b.gy;
       let best=1e9; f.fielders.forEach((fl,i)=>{ const d=Math.hypot(fl.x-tgx,fl.y-tgy); if(d<best){best=d; f.ctrl=i;} });
@@ -439,8 +447,12 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
         else if(f.t > f.land + 600){ safePlay(); }             // long fallback only (never freeze the ball early)
       }
       else if(f.phase==='held'){
-        b.gx=fc.x; b.gy=fc.y-6; b.x=b.gx; b.y=b.gy;            // ball in the glove — you MUST throw to a base
-        if(f.t > f.land + 1000){ safePlay(); }                // very long safety fallback only
+        b.gx=fc.x; b.gy=fc.y-6; b.x=b.gx; b.y=b.gy;            // ball in the glove — throw before the runners settle
+        if(!f.runners.some(offBase)){                          // everyone tagged up / reached safely: play is over
+          const n=game.outs-f.startOuts;
+          if(n>0) resolvePlay(n>=3?'TRIPLE PLAY!':n>=2?'DOUBLE PLAY!':'OUT! CAUGHT', true);
+          else safePlay();
+        } else if(f.t > f.land + 1000){ safePlay(); }          // long safety fallback
       }
       else if(f.phase==='throw'){
         const tw=f.throw, tp=basePos(f.throwBase); tw.t++; const pr=Math.min(tw.t/tw.dur,1);
@@ -663,6 +675,7 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
     g.fillStyle=C.shadow; g.beginPath(); g.ellipse(x,Math.min(y+r+4,NET_Y),r,r*0.4,0,0,7); g.fill();
     const bg=g.createRadialGradient(x-r*0.3,y-r*0.3,1,x,y,r); bg.addColorStop(0,C.ball); bg.addColorStop(1,C.ballSh);
     g.fillStyle=bg; g.beginPath(); g.arc(x,y,r,0,7); g.fill();
+    if(p.mph) stxt(p.mph+' MPH', MOUND.x, MOUND.y-30, C.cream, 10, 'center', true);   // pitch-speed readout
   }
   function drawNet(){
     const gx=110,gw=W-220,gy=NET_Y-6,gh=26;
