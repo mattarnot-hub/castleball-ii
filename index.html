@@ -163,8 +163,8 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
     // pitcher can target ANY x: inside the box = hittable strike, outside = ball
     const tx = strike ? (RACKET_MIN+6 + Math.random()*(RACKET_MAX-RACKET_MIN-12))
                       : (Math.random()<0.5 ? BOX_X0-16-Math.random()*14 : BOX_X1+16+Math.random()*14);
-    // variable, unpredictable pitch speed: 50 mph (slowest) .. 75 mph (fastest)
-    const mph = 50 + Math.random()*25;
+    // variable, unpredictable pitch speed: 67 mph (slowest) .. 100 mph (fastest)
+    const mph = 67 + Math.random()*33;
     game.pitch = { tx, strike, t:0, dur:Math.round(5000/mph), mph:Math.round(mph), released:false };
     game.ptimer=0; state='PITCH';
   }
@@ -396,7 +396,7 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
       f.runners.forEach(r=>{ if(r.cd>0) r.cd--;
         if(r.jeop){ if(r.prog>0){ r.prog=Math.max(0, r.prog-1/f.RUN); if(r.prog<=0){ r.jeop=false; r.to=r.from; } } }  // run back to the bag
         else if(r.to>r.from && !r.out && r.prog<1){
-          const cap=(f.phase==='air' && b.fly)?0.5:1;   // only a cautious lead on a fly until the ball lands
+          const cap=(!r.isBatter && f.phase==='air' && b.fly)?0.5:1;   // batter ALWAYS runs to first; other runners lead cautiously on a fly
           r.prog=Math.min(cap, r.prog+1/f.RUN);
         }
       });
