@@ -92,16 +92,20 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
     skin:'#e8b48a', navy:'#22314f', ball:'#fbfbf4', ballSh:'#c7c7bd', shadow:'rgba(0,0,0,0.28)'
   };
 
-  // ── scoring (Castle Ball points kept for offense) ─────────────────
+  // ── scoring (Castle Ball points — driven by the Rules Configurator via localStorage) ──
+  const PTS_DEFAULT = { homerun:100, first:10, second:40, third:80, home:1000, nomans:50, gate:50 };
+  const PTS = Object.assign({}, PTS_DEFAULT);
+  try { const saved = JSON.parse(localStorage.getItem('castleball-points')||'null');
+    if(saved) Object.keys(PTS_DEFAULT).forEach(k=>{ if(typeof saved[k]==='number') PTS[k]=saved[k]; }); } catch(e){}
   const HITS = {
-    HR:{label:'HOME RUN', pts:100, depth:'hr'},
-    TRIPLE:{label:'TRIPLE — 3RD', pts:80, depth:'deep'},
-    DOUBLE:{label:'DOUBLE — 2ND', pts:40, depth:'mid'},
-    NML:{label:"NO MAN'S LAND", pts:50, depth:'mid'},
-    SINGLE:{label:'SINGLE — 1ST', pts:10, depth:'shallow'},
+    HR:{label:'HOME RUN', pts:PTS.homerun, depth:'hr'},
+    TRIPLE:{label:'TRIPLE — 3RD', pts:PTS.third, depth:'deep'},
+    DOUBLE:{label:'DOUBLE — 2ND', pts:PTS.second, depth:'mid'},
+    NML:{label:"NO MAN'S LAND", pts:PTS.nomans, depth:'mid'},
+    SINGLE:{label:'SINGLE — 1ST', pts:PTS.first, depth:'shallow'},
   };
-  const RUN_PTS = 1000; // "Score at Home"
-  const GATE_PTS = 50;
+  const RUN_PTS = PTS.home; // "Score at Home"
+  const GATE_PTS = PTS.gate;
 
   // ── audio ─────────────────────────────────────────────────────────
   let actx;
@@ -345,7 +349,7 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
     game.bases=nb; game.baseFlash=18;
     if(runs>0) score(runs);
     if(wasOut){ beep(300,0.14); newBatter(); banner({label:outLabel, col:C.cream, pts:0}); }   // outs already recorded at each out
-    else { addOff(10,0); chord([440,587],0.09); newBatter(); banner({label: safeLabel || (runs>0?'SAFE — RUN SCORES!':'BASE HIT'), col: runs>0?C.gold:C.cream, pts:10}); }
+    else { addOff(HITS.SINGLE.pts,0); chord([440,587],0.09); newBatter(); banner({label: safeLabel || (runs>0?'SAFE — RUN SCORES!':'BASE HIT'), col: runs>0?C.gold:C.cream, pts:HITS.SINGLE.pts}); }
   }
   function flyout(){ const f=game.field; game.lastView='field'; recordOut(); beep(340,0.14);   // the batter is caught
     let jeop=false; f.runners.forEach(r=>{ if(r.isBatter){ r.out=true; } else if(!r.out && r.to>r.from && r.prog<1){ r.jeop=true; jeop=true; } });
@@ -355,7 +359,7 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
     f.phase='held'; f.cover=f.ctrl; const cfc=f.fielders[f.ctrl]; f.ball.gx=cfc.x; f.ball.gy=cfc.y-6; f.ball.x=f.ball.gx; f.ball.y=f.ball.gy;
   }
   function homeRun(){ let runs=1; game.bases.forEach(o=>{ if(o) runs++; }); game.bases=[false,false,false];
-    addOff(100,0); score(runs); newBatter(); game.baseFlash=18; banner({label:'HOME RUN', col:C.gold, pts:100}); }
+    addOff(HITS.HR.pts,0); score(runs); newBatter(); game.baseFlash=18; banner({label:'HOME RUN', col:C.gold, pts:HITS.HR.pts}); }
 
   function score(n){ addOff(n*RUN_PTS, n); beep(1000,0.2,'square',0.08); }   // n runs cross the plate
 
