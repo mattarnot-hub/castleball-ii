@@ -128,6 +128,8 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
   const FPOLE_R={x:FHOME.x+FRAD*Math.cos(FA_R), y:FHOME.y+FRAD*Math.sin(FA_R)};
   const FMOUND={x:256,y:337};                          // centre of the infield
   const FB2={x:256,y:249}, FB1={x:343,y:337}, FB3={x:169,y:337};  // 2nd / 1st / 3rd (1st & 3rd on the foul lines)
+  const FNET={cx:256, top:410, w:150, h:32};                      // Goalie net at home — outfielders smash into it
+  const OUTFIELDERS=[6,7,8];                                        // LF / CF / RF indices in FORM_KEYS
   const FORM = {  // base fielding formation (9 players)
     P:{x:256,y:337}, C:{x:256,y:408},
     B1:{x:344,y:334}, B2:{x:300,y:300}, SS:{x:212,y:300}, B3:{x:168,y:334},
@@ -363,6 +365,25 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
 
   function score(n){ addOff(n*RUN_PTS, n); beep(1000,0.2,'square',0.08); }   // n runs cross the plate
 
+  // ── net smash — an OUTFIELDER drives the ball into the Goalie net ─────
+  function startSmash(){ const f=game.field, fc=f.fielders[f.ctrl];
+    f.smashChg=0; f.phase='smash'; f.ball.team='def';
+    f.smash={ sx:fc.x, sy:fc.y-6, t:0, dur:15 };
+    beep(240,0.14,'sawtooth',0.07);
+  }
+  function netSmashResolve(){ const f=game.field;
+    addDef(GATE_PTS); game.netFlash=16; game.baseFlash=8; beep(140,0.32,'sawtooth',0.08);
+    const runnersOffBase = f.runners.filter(offBase);
+    if(runnersOffBase.length){                                    // caught someone between the bags -> the side is retired
+      runnersOffBase.forEach(r=>{ r.out=true; });
+      game.outs=3;
+      banner({label:'NET SMASH! SIDE RETIRED · +'+GATE_PTS+' DEF', col:C.red, pts:GATE_PTS, gate:true});
+    } else {                                                      // everyone was on a base — just a defensive net goal
+      newBatter();
+      banner({label:'NET GOAL · +'+GATE_PTS+' DEF', col:C.gold, pts:GATE_PTS, gate:true});
+    }
+  }
+
   // ── outs / innings (3 outs = half over; 9 innings; sides swap) ─────
   function recordOut(){ game.outs++; }
   function banner(res){ if(res) game.result=res; state='RESULT'; game.resultTimer=66; }
@@ -438,12 +459,25 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
         if(dd>FRAD-10){ b.gx=FHOME.x+dx/dd*(FRAD-10); b.gy=FHOME.y+dy/dd*(FRAD-10); b.vx*=-0.5; b.vy*=-0.5; }   // caroms off the wall
         b.x=b.gx; b.y=b.gy-b.h;
         // a baserunner (racket in hand) may DEFLECT the OFFENCE's own live ball — last touch was a team-mate.
+        // Deflect into the OUTFIELD -> points; into the INFIELD or FOUL territory -> that runner is OUT.
         if(b.team==='off'){
           for(const r of f.runners){ if(r.out){continue;} const rp=runnerPos(r);
             if(r.cd<=0 && b.h<22 && Math.hypot(rp.x-b.gx, rp.y-b.gy)<18){
               const nd=nearestDefender(b.gx,b.gy); let ax=b.gx-nd.x, ay=b.gy-nd.y, am=Math.hypot(ax,ay)||1;  // away from the defence
               const spd=3.2+f.depth*1.6; b.vx=ax/am*spd; b.vy=ay/am*spd; b.vh=2.6; if(b.h<1) b.h=1;
-              r.cd=42; f.deflectFx={x:rp.x,y:rp.y,t:18}; beep(560,0.05,'square',0.06); break;
+              r.cd=42; beep(560,0.05,'square',0.06);
+              // classify where the deflection is headed (sample a point out along its path)
+              const px=b.gx+ax/am*70, py=b.gy+ay/am*70;
+              let ang=Math.atan2(py-FHOME.y, px-FHOME.x); if(ang<0) ang+=Math.PI*2;
+              const dH=Math.hypot(px-FHOME.x, py-FHOME.y), fair=(ang>=FA_L && ang<=FA_R);
+              if(fair && dH>150){                                          // clean deflection into the outfield -> points
+                addOff(HITS.NML.pts,0); f.deflectFx={x:rp.x,y:rp.y,t:20,label:'+'+HITS.NML.pts,col:C.gold};
+              } else {                                                      // into the infield / foul -> the runner is OUT
+                r.out=true; recordOut(); b.team='def'; f.interceptT=14;
+                f.deflectFx={x:rp.x,y:rp.y,t:20,label:(fair?'INFIELD':'FOUL')+' — OUT!',col:C.red};
+                beep(200,0.12,'sawtooth',0.06);
+              }
+              break;
             }
           }
         }
@@ -452,11 +486,22 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
       }
       else if(f.phase==='held'){
         b.gx=fc.x; b.gy=fc.y-6; b.x=b.gx; b.y=b.gy;            // ball in the glove — throw before the runners settle
+        // OUTFIELDERS carry a racket: hold the action (Space / long-press) to smash the ball into the Goalie net.
+        const isOF = OUTFIELDERS.includes(f.ctrl);
+        const charging = isOF && (keys[' ']||keys['f'] || (tch.down && !tch.moved));
+        if(charging){ f.smashChg=(f.smashChg||0)+1; if(f.smashChg>=32){ startSmash(); return; } }
+        else if(f.smashChg){ f.smashChg=0; }
         if(!f.runners.some(offBase)){                          // everyone tagged up / reached safely: play is over
           const n=game.outs-f.startOuts;
           if(n>0) resolvePlay(n>=3?'TRIPLE PLAY!':n>=2?'DOUBLE PLAY!':'OUT! CAUGHT', true);
           else safePlay();
-        } else if(f.t > f.land + 1000){ safePlay(); }          // long safety fallback
+        } else if(f.t > f.land + 1400){ safePlay(); }          // long safety fallback (longer, to leave room to smash)
+      }
+      else if(f.phase==='smash'){
+        const s=f.smash; s.t++; const pr=Math.min(s.t/s.dur,1);
+        b.gx=s.sx+(FNET.cx-s.sx)*pr; b.gy=s.sy+((FNET.top+FNET.h/2)-s.sy)*pr;
+        b.h=Math.sin(pr*Math.PI)*12; b.x=b.gx; b.y=b.gy-b.h;
+        if(pr>=1) netSmashResolve();
       }
       else if(f.phase==='throw'){
         const tw=f.throw, tp=basePos(f.throwBase); tw.t++; const pr=Math.min(tw.t/tw.dur,1);
@@ -743,6 +788,16 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
   }
 
   // ══ FIELD CAMERA ══════════════════════════════════════════════════
+  function drawFieldNet(){
+    const x=FNET.cx-FNET.w/2, y=FNET.top, w=FNET.w, h=FNET.h;
+    const hot=(game.netFlash>0 && Math.floor(game.t/4)%2===0);
+    g.fillStyle='rgba(6,8,12,0.55)'; g.fillRect(x,y,w,h);                       // dark backing
+    g.strokeStyle=hot?C.red:'#e6e6ee'; g.lineWidth=3; g.strokeRect(x,y,w,h);    // frame (flashes red on a goal)
+    g.strokeStyle=hot?'rgba(212,69,58,0.7)':'rgba(230,230,238,0.45)'; g.lineWidth=1;   // mesh
+    for(let i=x+10;i<x+w;i+=11){ g.beginPath(); g.moveTo(i,y+2); g.lineTo(i,y+h-2); g.stroke(); }
+    for(let j=y+8;j<y+h;j+=8){ g.beginPath(); g.moveTo(x+2,j); g.lineTo(x+w-2,j); g.stroke(); }
+    ptxt('NET',FNET.cx,y-8,hot?C.red:'rgba(230,230,238,0.7)',7,'center');
+  }
   function drawField(){
     const HX=FHOME.x, HY=FHOME.y, R=FRAD, aL=FA_L, aR=FA_R;
     const fanPath=()=>{ g.beginPath(); g.moveTo(HX,HY); g.lineTo(FPOLE_L.x,FPOLE_L.y); g.arc(HX,HY,R,aL,aR); g.closePath(); };
@@ -777,6 +832,7 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
     // bases + home plate (pentagon)
     [ [b1,game.bases[0]],[b2,game.bases[1]],[b3,game.bases[2]] ].forEach(([p,on])=>drawBase(p.x,p.y,on));
     g.fillStyle=C.line; g.beginPath(); g.moveTo(h.x,h.y+6); g.lineTo(h.x-5,h.y+1); g.lineTo(h.x-5,h.y-4); g.lineTo(h.x+5,h.y-4); g.lineTo(h.x+5,h.y+1); g.closePath(); g.fill();
+    drawFieldNet();
 
     if(game.field){
       const f=game.field, b=f.ball;
@@ -810,7 +866,13 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
         if(f.phase==='loose'||f.phase==='held'){ ptxt(b.team==='def'?'DEF':'OFF', b.x, b.y-15, own, 7, 'center'); }
       }
       // deflection / interception cues
-      if(f.deflectFx && f.deflectFx.t>0){ const d=f.deflectFx; g.strokeStyle='rgba(201,168,76,'+(d.t/18)+')'; g.lineWidth=2; g.beginPath(); g.arc(d.x,d.y,(18-d.t)+6,0,7); g.stroke(); ptxt('DEFLECT!',d.x,d.y-24,C.gold,8,'center'); }
+      if(f.deflectFx && f.deflectFx.t>0){ const d=f.deflectFx, col=d.col||C.gold;
+        g.strokeStyle=(col===C.red?'rgba(212,69,58,':'rgba(201,168,76,')+(d.t/20)+')'; g.lineWidth=2; g.beginPath(); g.arc(d.x,d.y,(20-d.t)+6,0,7); g.stroke();
+        ptxt(d.label||'DEFLECT!',d.x,d.y-24,col,8,'center'); }
+      // outfielder charging a net smash — growing red ring + prompt
+      if(f.phase==='held' && f.smashChg>0){ const fc=f.fielders[f.ctrl], k=Math.min(f.smashChg/32,1);
+        g.strokeStyle=C.red; g.lineWidth=2+k*2; g.beginPath(); g.arc(fc.x,fc.y-4,10+k*14,0,7); g.stroke();
+        ptxt('SMASH!',fc.x,fc.y-32,C.red,8,'center'); }
       if(f.interceptT>0 && Math.floor(game.t/4)%2===0){ ptxt('INTERCEPTED!',b.x,b.y-28,C.red,9,'center'); }
       // the thrown ball
       if(f.phase==='throw' && f.throw){ const tw=f.throw; g.fillStyle=C.ball; g.beginPath(); g.arc(tw.x,tw.y,4,0,7); g.fill(); }
@@ -819,10 +881,13 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
         const tag=(p,s)=>{ g.fillStyle='rgba(8,9,14,0.7)'; g.beginPath(); g.arc(p.x,p.y-18,9,0,7); g.fill(); ptxt(s,p.x,p.y-18,C.gold,9,'center'); };
         tag(FB3,'◂'); tag(FB2,'▴'); tag(FB1,'▸'); tag(FHOME,'▾');
         if(Math.floor(game.t/16)%2===0) ptxt('SWIPE / KEY ▴2ND ◂3RD ▸1ST ▾HOME',256,52,C.gold,8,'center');
+        if(OUTFIELDERS.includes(f.ctrl) && Math.floor(game.t/16)%2===0) ptxt('OUTFIELD: HOLD SPACE / TAP = SMASH NET',256,66,C.red,7,'center');
       }
     }
     const ph=game.field&&game.field.phase, def=game.field&&game.field.ball.team==='def';
-    const hint = (ph==='held') ? 'GOT IT! SWIPE ▴2ND ◂3RD ▸1ST ▾HOME'
+    const of = ph==='held' && game.field && OUTFIELDERS.includes(game.field.ctrl);
+    const hint = (ph==='smash') ? 'SMASH TO THE NET…'
+               : (ph==='held') ? ('GOT IT! SWIPE ▴2ND ◂3RD ▸1ST ▾HOME'+(of?'  ·  HOLD = SMASH NET':''))
                : (ph==='throw') ? 'THROW…'
                : (ph==='loose') ? (def?'DEF BALL — close it out: field & throw':'OFF BALL — runners deflect · field to intercept')
                : 'DRAG / ◂▸▴▾ TO THE BALL · GRAB IT';
