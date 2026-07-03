@@ -309,7 +309,7 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
       phase:'air', t:0, land, RUN:150, hitSpeed,
       ball:{sx:FHOME.x, sy:FHOME.y, tx, ty, gx:FHOME.x, gy:FHOME.y, h:0, vx:0, vy:0, vh:0, x:FHOME.x, y:FHOME.y, peak, over, fly, team:'off'},
       deflectFx:null, interceptT:0,
-      fielders, ctrl:0, depth, runners:R, lead, leadBase, throwBase:-1, throw:null, cover:-1, startOuts:game.outs
+      fielders, ctrl:0, depth, runners:R, lead, leadBase, throwBase:-1, throw:null, cover:-1, passes:0, startOuts:game.outs
     };
     state='FIELD';
   }
@@ -329,21 +329,30 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
     if(Math.hypot(fc.x-tp.x,fc.y-tp.y) < bestc) cover=f.ctrl;    // thrower is closest -> they take the bag themselves
     f.cover=cover;
     f.throwBase=base; f.throw={sx:fc.x, sy:fc.y, x:fc.x, y:fc.y, t:0, dur:Math.max(14, Math.round(d/sp))};
+    f.passes=(f.passes||0)+1;                                    // count passes — the defence gets two before the play dies
     f.phase='throw'; beep(520,0.05,'square',0.06);
   }
   // a runner is still in jeopardy (off a base) and can be put out
   function offBase(r){ return !r.out && (r.jeop || (r.to>r.from && r.prog<1)); }
   function evalThrow(){ const f=game.field, base=f.throwBase, tp=basePos(base), cf=f.fielders[f.cover];
-    if(Math.hypot(cf.x-tp.x, cf.y-tp.y) > 20){ resolvePlay(null,false,'NO ONE COVERING — SAFE!'); return; }  // nobody covering the bag
-    let outIdx=-1; f.runners.forEach((r,i)=>{ if(r.out) return;
+    const covered = Math.hypot(cf.x-tp.x, cf.y-tp.y) <= 20;
+    let outIdx=-1;
+    if(covered){ f.runners.forEach((r,i)=>{ if(r.out) return;
       if(r.jeop && r.from===base) outIdx=i;                                  // doubled off a base they'd left (tag up)
       else if(!r.jeop && r.to===base && r.to>r.from && r.prog<1) outIdx=i;   // beat the forced runner to the bag
-    });
+    }); }
     if(outIdx>=0){ f.runners[outIdx].out=true; recordOut(); beep(300,0.14);
       // the play is NOT dead after one out — keep going for a double / triple play
       if(game.outs<3 && f.runners.some(offBase)){ f.ctrl=f.cover; f.phase='held'; f.ball.team='def'; return; }
-      const n=game.outs-f.startOuts; resolvePlay(n>=3?'TRIPLE PLAY!':n>=2?'DOUBLE PLAY!':'OUT AT '+baseName(base), true);
-    } else resolvePlay(null,false);
+      const n=game.outs-f.startOuts; resolvePlay(n>=3?'TRIPLE PLAY!':n>=2?'DOUBLE PLAY!':'OUT AT '+baseName(base), true); return;
+    }
+    // no out on this throw — the defence may make a SECOND pass before the play is dead
+    if(f.passes<2 && game.outs<3){
+      f.ctrl = covered ? f.cover : f.fielders.indexOf(nearestDefender(tp.x,tp.y));   // the receiver (or nearest, if the bag wasn't covered) takes it
+      const nf=f.fielders[f.ctrl]; f.ball.gx=nf.x; f.ball.gy=nf.y-6; f.ball.x=f.ball.gx; f.ball.y=f.ball.gy;
+      f.phase='held'; f.ball.team='def'; return;
+    }
+    resolvePlay(null,false, covered?null:'NO ONE COVERING — SAFE!');
   }
   function allRunnersDone(){ return game.field.runners.every(r=> r.to===r.from || r.prog>=1); }
   function safePlay(){ resolvePlay(null,false); }
@@ -376,12 +385,18 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
   }
   function startSmash(){ const f=game.field, fc=f.fielders[f.ctrl];
     f.phase='smash'; f.ball.team='def';
-    const tx=FNET.cx, ty=FNET.top+FNET.h/2;                  // straight to the net at home
+    const off=(Math.random()*2-1)*100;                      // random aim — can sail wide of the net (~25% miss)
+    const tx=FNET.cx+off, ty=FNET.top+FNET.h/2;
     const dist=Math.hypot(tx-fc.x, ty-(fc.y-6));
-    f.smash={ sx:fc.x, sy:fc.y-6, tx, ty, t:0, dur:Math.max(12, Math.round(dist/4)) };   // ~100 mph (4 px/frame), no faster
+    f.smash={ sx:fc.x, sy:fc.y-6, tx, ty, t:0, dur:Math.max(12, Math.round(dist/4)),   // ~100 mph (4 px/frame), no faster
+              miss: Math.abs(off) > FNET.w/2 };
     beep(240,0.14,'sawtooth',0.07);
   }
   function netSmashResolve(){ const f=game.field;
+    if(f.smash && f.smash.miss){                                   // sailed wide of the net -> no goal, runners are safe
+      game.shake=8; beep(170,0.22,'sawtooth',0.05);
+      resolvePlay(null,false,'SMASH MISSED THE NET!'); return;
+    }
     addDef(GATE_PTS); game.netFlash=16; game.baseFlash=8; beep(140,0.32,'sawtooth',0.08);
     const runnersOffBase = f.runners.filter(offBase);
     if(runnersOffBase.length){                                    // caught someone between the bags -> the side is retired
@@ -880,7 +895,7 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
       // net at home — hints the ▾▾ smash direction/range (the smash itself always goes to the net)
       if(f.phase==='held' && OUTFIELDERS.includes(f.ctrl)){ const fc=f.fielders[f.ctrl], apx=fc.x, apy=fc.y-4, netY=FNET.top+FNET.h/2;
         const base=Math.atan2(netY-apy, FNET.cx-apx), spread=0.30, L=32;   // small cone toward home
-        g.fillStyle='rgba(110,235,135,0.22)'; g.strokeStyle='rgba(110,235,135,0.65)'; g.lineWidth=1;
+        g.fillStyle='rgba(175,245,190,0.12)'; g.strokeStyle='rgba(175,245,190,0.4)'; g.lineWidth=1;
         g.beginPath(); g.moveTo(apx,apy); g.arc(apx,apy,L,base-spread,base+spread,false); g.closePath(); g.fill(); g.stroke();
         g.fillStyle='rgba(225,110,100,0.75)'; g.beginPath(); g.arc(apx+Math.cos(base)*L*0.82, apy+Math.sin(base)*L*0.82, 2.2,0,7); g.fill(); }
       if(f.interceptT>0 && Math.floor(game.t/4)%2===0){ ptxt('INTERCEPTED!',b.x,b.y-28,C.red,9,'center'); }
