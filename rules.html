@@ -562,30 +562,30 @@ input[type=range]::-webkit-slider-thumb {
       <div class="slider-row">
         <div class="slider-label-row">
           <span class="slider-name">Home Run</span>
-          <span class="slider-val" id="val-homerun">100</span>
+          <span class="slider-val" id="val-homerun">500</span>
         </div>
-        <input type="range" min="50" max="500" step="25" value="100" oninput="setSlider('homerun',this.value)" style="--pct:18%">
+        <input type="range" min="50" max="1000" step="25" value="500" oninput="setSlider('homerun',this.value)" style="--pct:47%">
       </div>
       <div class="slider-row">
         <div class="slider-label-row">
           <span class="slider-name">1st Base</span>
-          <span class="slider-val" id="val-first">10</span>
+          <span class="slider-val" id="val-first">50</span>
         </div>
-        <input type="range" min="5" max="200" step="5" value="10" oninput="setSlider('first',this.value)" style="--pct:3%">
+        <input type="range" min="5" max="200" step="5" value="50" oninput="setSlider('first',this.value)" style="--pct:23%">
       </div>
       <div class="slider-row">
         <div class="slider-label-row">
           <span class="slider-name">2nd Base</span>
-          <span class="slider-val" id="val-second">40</span>
+          <span class="slider-val" id="val-second">75</span>
         </div>
-        <input type="range" min="5" max="400" step="5" value="40" oninput="setSlider('second',this.value)" style="--pct:9%">
+        <input type="range" min="5" max="400" step="5" value="75" oninput="setSlider('second',this.value)" style="--pct:18%">
       </div>
       <div class="slider-row">
         <div class="slider-label-row">
           <span class="slider-name">3rd Base</span>
-          <span class="slider-val" id="val-third">80</span>
+          <span class="slider-val" id="val-third">100</span>
         </div>
-        <input type="range" min="5" max="600" step="5" value="80" oninput="setSlider('third',this.value)" style="--pct:13%">
+        <input type="range" min="5" max="600" step="5" value="100" oninput="setSlider('third',this.value)" style="--pct:16%">
       </div>
       <div class="slider-row">
         <div class="slider-label-row">
@@ -604,9 +604,16 @@ input[type=range]::-webkit-slider-thumb {
       <div class="slider-row">
         <div class="slider-label-row">
           <span class="slider-name">Gate Goal (defense)</span>
-          <span class="slider-val" id="val-gate">50</span>
+          <span class="slider-val" id="val-gate">100</span>
         </div>
-        <input type="range" min="10" max="200" step="5" value="50" oninput="setSlider('gate',this.value)" style="--pct:20%">
+        <input type="range" min="10" max="200" step="5" value="100" oninput="setSlider('gate',this.value)" style="--pct:47%">
+      </div>
+      <div class="slider-row">
+        <div class="slider-label-row">
+          <span class="slider-name">Gate Miss (offense)</span>
+          <span class="slider-val" id="val-gatemiss">100</span>
+        </div>
+        <input type="range" min="10" max="300" step="5" value="100" oninput="setSlider('gatemiss',this.value)" style="--pct:31%">
       </div>
     </div>
 
@@ -738,7 +745,7 @@ const state = {
     mixedLeague: true
   },
   pills: { ball: 'dodgeball', net: 'soccer' },
-  sliders: { homerun:100, first:10, second:40, third:80, home:1000, nomans:50, gate:50 }
+  sliders: { homerun:500, first:50, second:75, third:100, home:1000, nomans:50, gate:100, gatemiss:100 }
 };
 
 // ── PILL LABELS ─────────────────────────────────────────────────────────────
@@ -776,7 +783,7 @@ function setSlider(key, val) {
 
 // Persist scoring so the video game reads it (same-origin localStorage bridge).
 function savePoints() {
-  try { localStorage.setItem('castleball-points', JSON.stringify(state.sliders)); } catch (e) {}
+  try { localStorage.setItem('castleball-points-v2', JSON.stringify(state.sliders)); } catch (e) {}
 }
 
 // ── TAB ─────────────────────────────────────────────────────────────────────
@@ -795,7 +802,7 @@ function resetAll() {
   state.pills.ball = 'dodgeball'; state.pills.net = 'soccer';
   document.querySelectorAll('#ball-pills .pill').forEach(p => p.classList.toggle('active', p.dataset.val === 'dodgeball'));
   document.querySelectorAll('#net-pills .pill').forEach(p => p.classList.toggle('active', p.dataset.val === 'soccer'));
-  const defaults = { homerun:100,first:10,second:40,third:80,home:1000,nomans:50,gate:50 };
+  const defaults = { homerun:500,first:50,second:75,third:100,home:1000,nomans:50,gate:100,gatemiss:100 };
   Object.entries(defaults).forEach(([k,v]) => {
     state.sliders[k] = v;
     document.getElementById('val-'+k).textContent = v.toLocaleString();
