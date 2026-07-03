@@ -888,10 +888,16 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
       if(f.deflectFx && f.deflectFx.t>0){ const d=f.deflectFx, col=d.col||C.gold;
         g.strokeStyle=(col===C.red?'rgba(212,69,58,':'rgba(201,168,76,')+(d.t/20)+')'; g.lineWidth=2; g.beginPath(); g.arc(d.x,d.y,(20-d.t)+6,0,7); g.stroke();
         ptxt(d.label||'DEFLECT!',d.x,d.y-24,col,8,'center'); }
-      // outfielder holding: dashed aim line to the chosen spot on the net (◂▸ moves it, ▾▾ fires)
-      if(f.phase==='held' && OUTFIELDERS.includes(f.ctrl)){ const fc=f.fielders[f.ctrl], ax=FNET.cx+(f.smashAim||0), ay=FNET.top+FNET.h/2;
-        g.strokeStyle='rgba(212,69,58,0.85)'; g.lineWidth=2; g.setLineDash([5,4]); g.beginPath(); g.moveTo(fc.x,fc.y-4); g.lineTo(ax,ay); g.stroke(); g.setLineDash([]);
-        g.fillStyle=C.red; g.beginPath(); g.arc(ax,ay,5,0,7); g.fill(); ptxt('AIM',ax,ay-13,C.red,7,'center'); }
+      // outfielder holding: a small "pizza-slice" range cone with its tip on the defender —
+      // light-green shows the spread of the shot, a lighter-red wedge marks the current aim (◂▸)
+      if(f.phase==='held' && OUTFIELDERS.includes(f.ctrl)){ const fc=f.fielders[f.ctrl], apx=fc.x, apy=fc.y-4, netY=FNET.top+FNET.h/2;
+        const base=Math.atan2(netY-apy, FNET.cx-apx), spread=0.42, L=46;   // short cone, tip on the defender, aimed at the net
+        g.fillStyle='rgba(140,225,155,0.15)'; g.strokeStyle='rgba(140,225,155,0.5)'; g.lineWidth=1;
+        g.beginPath(); g.moveTo(apx,apy); g.arc(apx,apy,L,base-spread,base+spread,false); g.closePath(); g.fill(); g.stroke();
+        const aA=base-((f.smashAim||0)/63)*spread, w=0.09;               // ◂▸ sweeps the aim within the range (+aim = right = net's right)
+        g.fillStyle='rgba(245,150,140,0.34)';
+        g.beginPath(); g.moveTo(apx,apy); g.arc(apx,apy,L*0.9,aA-w,aA+w,false); g.closePath(); g.fill();
+        g.fillStyle='rgba(245,150,140,0.9)'; g.beginPath(); g.arc(apx+Math.cos(aA)*L*0.9, apy+Math.sin(aA)*L*0.9, 2.6,0,7); g.fill(); }
       if(f.interceptT>0 && Math.floor(game.t/4)%2===0){ ptxt('INTERCEPTED!',b.x,b.y-28,C.red,9,'center'); }
       // the thrown ball
       if(f.phase==='throw' && f.throw){ const tw=f.throw; g.fillStyle=C.ball; g.beginPath(); g.arc(tw.x,tw.y,4,0,7); g.fill(); }
