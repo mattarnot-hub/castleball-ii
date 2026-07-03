@@ -64,8 +64,8 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
 
 <div class="help">
   <div><h4>📱 BAT (touch)</h4><p><b>Tap</b> to throw the pitch · <b>drag</b> your thumb to aim the racket · <b>tap</b> again to swing.</p></div>
-  <div><h4>📱 FIELD (touch)</h4><p><b>Drag</b> to the ball to field it. <b>Infielder:</b> swipe to a base — <b>↑</b>2nd · <b>←</b>3rd · <b>→</b>1st. <b>Outfielder:</b> swipe <b>←/→</b> to aim, swipe <b>↓</b> to <b>smash the net</b> (retires the side if a runner is off-base).</p></div>
-  <div><h4>⌨ KEYBOARD</h4><p><span class="key">SPACE</span> pitch / swing · <span class="key">◂</span><span class="key">▸</span> aim. Field with the arrows. Infielders throw <span class="key">◂</span>3rd <span class="key">▴</span>2nd <span class="key">▸</span>1st; outfielders aim <span class="key">◂</span><span class="key">▸</span> and <b>double-tap</b> <span class="key">▾</span> to smash the net.</p></div>
+  <div><h4>📱 FIELD (touch)</h4><p><b>Drag</b> to the ball to field it. <b>Infielder:</b> swipe to a base — <b>↑</b>2nd · <b>←</b>3rd · <b>→</b>1st · <b>↓</b>home. <b>Outfielder:</b> swipe <b>←/→</b> to aim, <b>↓ once</b> throws home, <b>↓↓ twice</b> <b>smashes the net</b> (retires the side if a runner is off-base).</p></div>
+  <div><h4>⌨ KEYBOARD</h4><p><span class="key">SPACE</span> pitch / swing · <span class="key">◂</span><span class="key">▸</span> aim. Field with the arrows. Infielders throw <span class="key">◂</span>3rd <span class="key">▴</span>2nd <span class="key">▸</span>1st <span class="key">▾</span>home; outfielders aim <span class="key">◂</span><span class="key">▸</span>, tap <span class="key">▾</span> to throw home or <b>double-tap</b> <span class="key">▾</span> to smash the net.</p></div>
   <div><h4>RULES</h4><p>Balls · Strikes · Outs · 9 innings, Team A vs Team B. Ball outside the net = ball (4 = walk); into the net = strike (+50 defence).</p></div>
 </div>
 
@@ -184,16 +184,14 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
     if(state==='RESULT'){ if(game.resultTimer<=0) afterResult(); return; }
     if(state==='FIELD' && game.field && game.field.phase==='held'){   // fielder has the ball
       const f=game.field, isOF=OUTFIELDERS.includes(f.ctrl);
-      if(isOF){                                     // OUTFIELDER: ◂▸ aim the net · double-tap ▾ = SMASH
-        if(code==='down'){
-          if(f.lastDownTap!==undefined && game.t-f.lastDownTap<30){ startSmash(); f.lastDownTap=undefined; }
-          else f.lastDownTap=game.t;                // first tap — arm the smash for ~0.5s
-        }
+      if(isOF){                                     // OUTFIELDER: ◂▸ aim · ▾ throw home · ▾▾ SMASH the net
+        if(code==='down') outfieldDown();
         // ◂ ▸ aim is applied continuously in update()
-      } else {                                      // INFIELDER: throw to a base (home throw removed)
+      } else {                                      // INFIELDER: throw to a base
         if(code==='left') throwTo(3);        // ◂ 3rd
         else if(code==='up') throwTo(2);     // ▴ 2nd
         else if(code==='right') throwTo(1);  // ▸ 1st
+        else if(code==='down') throwTo(4);   // ▾ home
       }
       return;
     }
@@ -247,11 +245,11 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
     else if(state==='FIELD' && game.field && game.field.phase==='held' && dist>22){
       const f=game.field, isOF=OUTFIELDERS.includes(f.ctrl);
       const dir = Math.abs(dx)>Math.abs(dy) ? (dx>0?'right':'left') : (dy>0?'down':'up');
-      if(isOF){                                             // outfielder: ◂▸ swipe aims the net · ▾ swipe fires
-        if(dir==='down') startSmash();
+      if(isOF){                                             // outfielder: ◂▸ aim · ▾ home (single) · ▾▾ smash (double)
+        if(dir==='down') outfieldDown();
         else if(dir==='left')  f.smashAim=Math.max(-63,(f.smashAim||0)-26);
         else if(dir==='right') f.smashAim=Math.min( 63,(f.smashAim||0)+26);
-      } else down(dir);                                     // infielder: swipe to a base
+      } else down(dir);                                     // infielder: swipe to a base (▾ = home)
     }
   });
   cv.addEventListener('pointercancel',()=>{ tch.down=false; fieldTouch=null; });
@@ -380,6 +378,10 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
   function score(n){ addOff(n*RUN_PTS, n); beep(1000,0.2,'square',0.08); }   // n runs cross the plate
 
   // ── net smash — an OUTFIELDER drives the ball into the Goalie net ─────
+  function outfieldDown(){ const f=game.field;   // ▾ once = throw home (fires after a short window) · ▾▾ = smash the net
+    if(f.lastDownTap!==undefined && game.t-f.lastDownTap<30){ f.pendHome=undefined; f.lastDownTap=undefined; startSmash(); }
+    else { f.lastDownTap=game.t; f.pendHome=game.t; }
+  }
   function startSmash(){ const f=game.field, fc=f.fielders[f.ctrl];
     const aim=Math.max(-63,Math.min(63,f.smashAim||0));       // ◂▸ chose where on the net it goes
     f.phase='smash'; f.ball.team='def';
@@ -506,7 +508,8 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
           if(keys['arrowleft']||keys['a'])  f.smashAim=Math.max(-63,f.smashAim-2.6);
           if(keys['arrowright']||keys['d']) f.smashAim=Math.min( 63,f.smashAim+2.6);
         }
-        if(!f.runners.some(offBase)){                          // everyone tagged up / reached safely: play is over
+        if(f.pendHome!==undefined && game.t-f.pendHome>=30){ f.pendHome=undefined; throwTo(4); }   // ▾ once, no 2nd tap -> throw home
+        else if(!f.runners.some(offBase)){                     // everyone tagged up / reached safely: play is over
           const n=game.outs-f.startOuts;
           if(n>0) resolvePlay(n>=3?'TRIPLE PLAY!':n>=2?'DOUBLE PLAY!':'OUT! CAUGHT', true);
           else safePlay();
@@ -895,18 +898,18 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
       // when a fielder holds the ball, show which arrow throws to which base
       if(f.phase==='held'){
         if(OUTFIELDERS.includes(f.ctrl)){
-          if(Math.floor(game.t/16)%2===0) ptxt('OUTFIELD · ◂▸ AIM · DOUBLE-TAP ▾ = SMASH NET',256,52,C.red,7,'center');
+          if(Math.floor(game.t/16)%2===0) ptxt('OUTFIELD · ◂▸ AIM · ▾ HOME · ▾▾ SMASH NET',256,52,C.red,7,'center');
         } else {
           const tag=(p,s)=>{ g.fillStyle='rgba(8,9,14,0.7)'; g.beginPath(); g.arc(p.x,p.y-18,9,0,7); g.fill(); ptxt(s,p.x,p.y-18,C.gold,9,'center'); };
-          tag(FB3,'◂'); tag(FB2,'▴'); tag(FB1,'▸');
-          if(Math.floor(game.t/16)%2===0) ptxt('INFIELD · SWIPE/KEY ▴2ND ◂3RD ▸1ST',256,52,C.gold,8,'center');
+          tag(FB3,'◂'); tag(FB2,'▴'); tag(FB1,'▸'); tag(FHOME,'▾');
+          if(Math.floor(game.t/16)%2===0) ptxt('INFIELD · SWIPE/KEY ▴2ND ◂3RD ▸1ST ▾HOME',256,52,C.gold,8,'center');
         }
       }
     }
     const ph=game.field&&game.field.phase, def=game.field&&game.field.ball.team==='def';
     const of = ph==='held' && game.field && OUTFIELDERS.includes(game.field.ctrl);
     const hint = (ph==='smash') ? 'SMASH TO THE NET…'
-               : (ph==='held') ? (of?'OUTFIELD! ◂▸ AIM · DOUBLE-TAP ▾ = SMASH NET':'GOT IT! SWIPE ▴2ND ◂3RD ▸1ST')
+               : (ph==='held') ? (of?'OUTFIELD! ◂▸ AIM · ▾ HOME · ▾▾ SMASH NET':'GOT IT! SWIPE ▴2ND ◂3RD ▸1ST ▾HOME')
                : (ph==='throw') ? 'THROW…'
                : (ph==='loose') ? (def?'DEF BALL — close it out: field & throw':'OFF BALL — runners deflect · field to intercept')
                : 'DRAG / ◂▸▴▾ TO THE BALL · GRAB IT';
@@ -932,8 +935,8 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
     stxt('3.  Tap again  —  swing',86,198,C.cream,11);
     stxt('FIELDING',72,224,C.green,11,'left',true);
     stxt('•  Drag  —  run the nearest fielder to the ball',86,242,C.cream,11);
-    stxt('•  Infield: grab it, swipe to a base   ← 3rd  ↑ 2nd  → 1st',86,260,C.cream,11);
-    stxt('•  Outfield: ← → aim, double-tap ↓ = SMASH THE NET',86,278,C.red,11);
+    stxt('•  Infield: swipe to a base  ← 3rd  ↑ 2nd  → 1st  ↓ home',86,260,C.cream,11);
+    stxt('•  Outfield: ←→ aim · ↓ throw home · ↓↓ SMASH THE NET',86,278,C.red,11);
     g.strokeStyle='rgba(201,168,76,0.25)'; g.lineWidth=1; g.beginPath(); g.moveTo(70,300); g.lineTo(442,300); g.stroke();
     stxt('9 innings · Team A (blue) bats, Team B (white) fields — and swap.',256,314,'rgba(240,232,208,0.7)',9.5,'center');
     stxt('Ball outside the net = ball (4 = walk).  Into the net = strike (3 = out).',256,332,'rgba(240,232,208,0.62)',9,'center');
