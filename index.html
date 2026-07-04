@@ -625,14 +625,14 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
     crowd(0,195); crowdFlashes(0,0,W,190); lightTower(40,2); lightTower(472,2);
     signage(84);   // scrolling ticker moved up to just below the scoreboard
     // grass = a low, flat field bounded above by a shallow DARK-GREEN outfield wall; the crowd sits behind it
-    const fg=g.createLinearGradient(0,132,0,H); fg.addColorStop(0,C.grassLo); fg.addColorStop(1,C.grassHi);
+    const fg=g.createLinearGradient(0,118,0,H); fg.addColorStop(0,C.grassLo); fg.addColorStop(1,C.grassHi);
     g.fillStyle=fg;
-    g.beginPath(); g.moveTo(0,H); g.lineTo(0,186);
-    g.arc(256,720,592, Math.PI*1.358, Math.PI*1.642, false); g.lineTo(W,186); g.lineTo(W,H); g.closePath(); g.fill();
-    // DARK-GREEN outfield wall — the deep boundary; 2nd base + outfield lie in front of it
+    g.beginPath(); g.moveTo(0,H); g.lineTo(0,176);
+    g.arc(256,708,590, Math.PI*1.358, Math.PI*1.642, false); g.lineTo(W,176); g.lineTo(W,H); g.closePath(); g.fill();
+    // DARK-GREEN outfield wall pushed HIGHER — a deeper outfield sits in front of it
     g.lineCap='round';
-    g.strokeStyle='#0c433c'; g.lineWidth=17; g.beginPath(); g.arc(256,720,592,Math.PI*1.358,Math.PI*1.642); g.stroke();
-    g.strokeStyle='#155f54'; g.lineWidth=3;  g.beginPath(); g.arc(256,720,600,Math.PI*1.358,Math.PI*1.642); g.stroke();   // lit top rail
+    g.strokeStyle='#0c433c'; g.lineWidth=17; g.beginPath(); g.arc(256,708,590,Math.PI*1.358,Math.PI*1.642); g.stroke();
+    g.strokeStyle='#155f54'; g.lineWidth=3;  g.beginPath(); g.arc(256,708,598,Math.PI*1.358,Math.PI*1.642); g.stroke();   // lit top rail
     g.lineCap='butt';
 
     drawBatInfield();
@@ -648,20 +648,22 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
   }
 
   function drawBatInfield(){
-    // 2nd base far off in the distance, just behind the pitcher (deep band of outfield + wall behind it)
-    g.fillStyle=C.dirtLo; g.beginPath(); g.ellipse(256,188,26,9,0,0,7); g.fill();
-    g.save(); g.translate(256,188); g.rotate(Math.PI/4);
-    g.fillStyle=game.bases[1]?C.gold:C.line; g.fillRect(-4,-4,8,8);
-    if(game.bases[1]){ g.fillStyle=C.red; g.fillRect(-1.5,-1.5,3,3); } g.restore();
-    // dirt base paths run OUT to the left/right screen edges — toward the unseen 1st & 3rd bases
-    g.strokeStyle=C.dirt; g.lineWidth=22; g.lineJoin='round'; g.lineCap='round';
-    g.beginPath(); g.moveTo(256,388); g.lineTo(0,306); g.moveTo(256,388); g.lineTo(W,306); g.stroke();
+    const SBx=256, SBy=165;   // 2nd base — distant, high up in the outfield
+    // dirt base paths: home -> off-screen 1st/3rd (screen edges), then edges -> 2nd base (the full diamond)
+    g.lineJoin='round'; g.lineCap='round';
+    g.strokeStyle=C.dirt; g.lineWidth=22; g.beginPath(); g.moveTo(256,388); g.lineTo(0,306); g.moveTo(256,388); g.lineTo(W,306); g.stroke();  // home -> 1st/3rd (near, wide)
+    g.lineWidth=14; g.beginPath(); g.moveTo(0,306); g.lineTo(SBx,SBy); g.moveTo(W,306); g.lineTo(SBx,SBy); g.stroke();                        // 1st/3rd -> 2nd (deeper, thinner)
     g.lineCap='butt';
+    g.fillStyle=C.dirtLo; g.beginPath(); g.ellipse(SBx,SBy,22,7,0,0,7); g.fill();   // 2nd-base dirt patch
     // home-plate dirt (foreground)
     const hg=g.createRadialGradient(256,406,12,256,406,150); hg.addColorStop(0,C.dirtHi); hg.addColorStop(1,C.dirtLo);
     g.fillStyle=hg; g.beginPath(); g.ellipse(256,412,168,58,0,0,7); g.fill();
-    // white chalk lines along the base paths, running off the sides (bases themselves are off-camera)
+    // white chalk lines over the paths (home -> sides, and sides -> 2nd base)
     g.strokeStyle=C.line; g.lineWidth=3; g.beginPath(); g.moveTo(256,386); g.lineTo(0,306); g.moveTo(256,386); g.lineTo(W,306); g.stroke();
+    g.lineWidth=2; g.beginPath(); g.moveTo(0,306); g.lineTo(SBx,SBy); g.moveTo(W,306); g.lineTo(SBx,SBy); g.stroke();
+    // 2nd base
+    g.save(); g.translate(SBx,SBy); g.rotate(Math.PI/4); g.fillStyle=game.bases[1]?C.gold:C.line; g.fillRect(-4,-4,8,8);
+    if(game.bases[1]){ g.fillStyle=C.red; g.fillRect(-1.5,-1.5,3,3); } g.restore();
     // pitcher's mound (the source of the pitch)
     const mg=g.createRadialGradient(MOUND.x,MOUND.y+4,4,MOUND.x,MOUND.y+4,42); mg.addColorStop(0,C.dirtHi); mg.addColorStop(1,C.dirtLo);
     g.fillStyle=mg; g.beginPath(); g.ellipse(MOUND.x,MOUND.y+6,42,17,0,0,7); g.fill();
