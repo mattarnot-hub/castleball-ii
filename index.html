@@ -622,22 +622,18 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
 
   // ══ BAT CAMERA ════════════════════════════════════════════════════
   function drawBat(){
-    // a full crowd bowl fills the whole backdrop; grass is then bounded by the arched wall, so the
-    // audience wraps down BOTH sides of the outfield — a lower, more immersive stadium framing
-    crowd(0,200); crowdFlashes(0,0,W,196); lightTower(40,2); lightTower(472,2);
-    // a nearly-flat green field below a shallow, LOW outfield wall — the back of the field is pushed
-    // down to ~1/3 of the way down, for a low, flat, straight-behind-the-batter camera
-    const fg=g.createLinearGradient(0,148,0,H); fg.addColorStop(0,C.grassLo); fg.addColorStop(1,C.grassHi);
+    crowd(0,195); crowdFlashes(0,0,W,190); lightTower(40,2); lightTower(472,2);
+    signage(84);   // scrolling ticker moved up to just below the scoreboard
+    // grass = a low, flat field bounded above by a shallow DARK-GREEN outfield wall; the crowd sits behind it
+    const fg=g.createLinearGradient(0,132,0,H); fg.addColorStop(0,C.grassLo); fg.addColorStop(1,C.grassHi);
     g.fillStyle=fg;
-    g.beginPath(); g.moveTo(0,H); g.lineTo(0,193);
-    g.arc(256,900,752, Math.PI*1.389, Math.PI*1.611, false); g.lineTo(W,193); g.lineTo(W,H); g.closePath(); g.fill();
-    signage(132);   // sponsor board on the wall
-    // shallow, low outfield wall spanning the width
-    g.strokeStyle=C.wall; g.lineWidth=14; g.beginPath(); g.arc(256,900,752,Math.PI*1.389,Math.PI*1.611); g.stroke();
-    g.strokeStyle=C.gold; g.lineWidth=2;  g.beginPath(); g.arc(256,900,745,Math.PI*1.389,Math.PI*1.611); g.stroke();
-    g.fillStyle=C.gold; g.fillRect(12,150,3,44); g.fillRect(497,150,3,44);   // foul poles at the far corners
-    // faint foul lines fan from home toward the corners (1st/3rd are off-camera)
-    g.strokeStyle=C.line; g.lineWidth=3; g.beginPath(); g.moveTo(256,392); g.lineTo(10,196); g.moveTo(256,392); g.lineTo(502,196); g.stroke();
+    g.beginPath(); g.moveTo(0,H); g.lineTo(0,186);
+    g.arc(256,720,592, Math.PI*1.358, Math.PI*1.642, false); g.lineTo(W,186); g.lineTo(W,H); g.closePath(); g.fill();
+    // DARK-GREEN outfield wall — the deep boundary; 2nd base + outfield lie in front of it
+    g.lineCap='round';
+    g.strokeStyle='#0c433c'; g.lineWidth=17; g.beginPath(); g.arc(256,720,592,Math.PI*1.358,Math.PI*1.642); g.stroke();
+    g.strokeStyle='#155f54'; g.lineWidth=3;  g.beginPath(); g.arc(256,720,600,Math.PI*1.358,Math.PI*1.642); g.stroke();   // lit top rail
+    g.lineCap='butt';
 
     drawBatInfield();
     drawPitcher(MOUND.x,MOUND.y-6, game.ptimer>0 && state==='PITCH');
@@ -652,13 +648,23 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
   }
 
   function drawBatInfield(){
-    // flat, low-angle field — NO base diamond (1st/2nd/3rd are off-camera; runners are shown by the mini
-    // diamond, bottom-left). Just the foreground home-plate dirt and the pitcher's mound on the green.
+    // 2nd base far off in the distance, just behind the pitcher (outfield + wall sit behind it)
+    g.fillStyle=C.dirtLo; g.beginPath(); g.ellipse(256,170,26,9,0,0,7); g.fill();
+    g.save(); g.translate(256,170); g.rotate(Math.PI/4);
+    g.fillStyle=game.bases[1]?C.gold:C.line; g.fillRect(-4,-4,8,8);
+    if(game.bases[1]){ g.fillStyle=C.red; g.fillRect(-1.5,-1.5,3,3); } g.restore();
+    // dirt base paths run OUT to the left/right screen edges — toward the unseen 1st & 3rd bases
+    g.strokeStyle=C.dirt; g.lineWidth=22; g.lineJoin='round'; g.lineCap='round';
+    g.beginPath(); g.moveTo(256,388); g.lineTo(0,306); g.moveTo(256,388); g.lineTo(W,306); g.stroke();
+    g.lineCap='butt';
+    // home-plate dirt (foreground)
     const hg=g.createRadialGradient(256,406,12,256,406,150); hg.addColorStop(0,C.dirtHi); hg.addColorStop(1,C.dirtLo);
-    g.fillStyle=hg; g.beginPath(); g.ellipse(256,412,168,58,0,0,7); g.fill();          // home-plate dirt (foreground)
+    g.fillStyle=hg; g.beginPath(); g.ellipse(256,412,168,58,0,0,7); g.fill();
+    // white chalk lines along the base paths, running off the sides (bases themselves are off-camera)
+    g.strokeStyle=C.line; g.lineWidth=3; g.beginPath(); g.moveTo(256,386); g.lineTo(0,306); g.moveTo(256,386); g.lineTo(W,306); g.stroke();
     // pitcher's mound (the source of the pitch)
-    const mg=g.createRadialGradient(MOUND.x,MOUND.y+4,4,MOUND.x,MOUND.y+4,44); mg.addColorStop(0,C.dirtHi); mg.addColorStop(1,C.dirtLo);
-    g.fillStyle=mg; g.beginPath(); g.ellipse(MOUND.x,MOUND.y+6,44,18,0,0,7); g.fill();
+    const mg=g.createRadialGradient(MOUND.x,MOUND.y+4,4,MOUND.x,MOUND.y+4,42); mg.addColorStop(0,C.dirtHi); mg.addColorStop(1,C.dirtLo);
+    g.fillStyle=mg; g.beginPath(); g.ellipse(MOUND.x,MOUND.y+6,42,17,0,0,7); g.fill();
     g.fillStyle=C.line; g.fillRect(MOUND.x-12,MOUND.y+4,24,4);
   }
   function drawBase(x,y,lit){ const f=game.baseFlash>0&&lit;
@@ -667,7 +673,7 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
 
   function drawPitcher(x,y,wind){
     const J=fieldJersey(), P=fieldPant();   // pitcher is on the fielding (defence) team
-    g.save(); g.translate(x,y); g.lineJoin='round';
+    g.save(); g.translate(x,y); g.scale(0.85,0.85); g.lineJoin='round';   // slightly distant (deep in the field)
     g.fillStyle='rgba(0,0,0,0.28)'; g.beginPath(); g.ellipse(0,26,17,5,0,0,7); g.fill();
     g.fillStyle=shade(P,0.95); rr(-7,12,6,15,3); g.fill(); rr(1,12,6,15,3); g.fill();    // legs
     g.fillStyle='#15151c'; g.beginPath(); g.ellipse(-4,27,4,2.2,0,0,7); g.fill(); g.beginPath(); g.ellipse(4,27,4,2.2,0,0,7); g.fill();
