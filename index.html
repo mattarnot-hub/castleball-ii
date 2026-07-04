@@ -116,7 +116,7 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
   function chord(fs,d){ fs.forEach((f,i)=>setTimeout(()=>beep(f,d),i*60)); }
 
   // ── BAT-cam geometry ──────────────────────────────────────────────
-  const MOUND={x:256,y:200}, PLATE={x:256,y:408}, CONTACT_Y=400, NET_Y=442;
+  const MOUND={x:256,y:242}, PLATE={x:256,y:408}, CONTACT_Y=400, NET_Y=442;   // mound sits deeper -> more outfield behind 2nd
   // ONE wide rectangular batter's box (the whole red area is hittable)
   const BOX_X0=110, BOX_X1=392, BOX_Y0=372, BOX_H=64;
   const BOX_C=(BOX_X0+BOX_X1)/2, BOX_HW=(BOX_X1-BOX_X0)/2;
@@ -648,9 +648,9 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
   }
 
   function drawBatInfield(){
-    // 2nd base far off in the distance, just behind the pitcher (outfield + wall sit behind it)
-    g.fillStyle=C.dirtLo; g.beginPath(); g.ellipse(256,170,26,9,0,0,7); g.fill();
-    g.save(); g.translate(256,170); g.rotate(Math.PI/4);
+    // 2nd base far off in the distance, just behind the pitcher (deep band of outfield + wall behind it)
+    g.fillStyle=C.dirtLo; g.beginPath(); g.ellipse(256,188,26,9,0,0,7); g.fill();
+    g.save(); g.translate(256,188); g.rotate(Math.PI/4);
     g.fillStyle=game.bases[1]?C.gold:C.line; g.fillRect(-4,-4,8,8);
     if(game.bases[1]){ g.fillStyle=C.red; g.fillRect(-1.5,-1.5,3,3); } g.restore();
     // dirt base paths run OUT to the left/right screen edges — toward the unseen 1st & 3rd bases
