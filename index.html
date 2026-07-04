@@ -624,21 +624,20 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
   function drawBat(){
     // a full crowd bowl fills the whole backdrop; grass is then bounded by the arched wall, so the
     // audience wraps down BOTH sides of the outfield — a lower, more immersive stadium framing
-    crowd(0,210); crowdFlashes(0,0,W,206); lightTower(40,2); lightTower(472,2);
-    const fg=g.createLinearGradient(0,104,0,H); fg.addColorStop(0,C.grassLo); fg.addColorStop(1,C.grassHi);
+    crowd(0,200); crowdFlashes(0,0,W,196); lightTower(40,2); lightTower(472,2);
+    // a nearly-flat green field below a shallow, LOW outfield wall — the back of the field is pushed
+    // down to ~1/3 of the way down, for a low, flat, straight-behind-the-batter camera
+    const fg=g.createLinearGradient(0,148,0,H); fg.addColorStop(0,C.grassLo); fg.addColorStop(1,C.grassHi);
     g.fillStyle=fg;
-    g.beginPath(); g.moveTo(0,H); g.lineTo(0,186); g.lineTo(27,186);
-    g.arc(256,470,366, Math.PI*1.285, Math.PI*1.715, false); g.lineTo(485,186); g.lineTo(W,186); g.lineTo(W,H); g.closePath(); g.fill();
-    signage(96);   // sponsor board draped along the outfield wall
-    // mowed arcs (concentric, centered beyond home)
-    g.strokeStyle='rgba(255,255,255,0.05)'; g.lineWidth=10;
-    for(let r=120;r<330;r+=40){ g.beginPath(); g.arc(256,470,r,Math.PI*1.30,Math.PI*1.70); g.stroke(); }
-    // ARCHED outfield fence sweeping across the top, hard up against the crowd
-    g.strokeStyle=C.wall; g.lineWidth=12; g.beginPath(); g.arc(256,470,366,Math.PI*1.285,Math.PI*1.715); g.stroke();
-    g.strokeStyle=C.gold; g.lineWidth=2;  g.beginPath(); g.arc(256,470,359,Math.PI*1.285,Math.PI*1.715); g.stroke();
-    g.fillStyle=C.gold; g.fillRect(20,150,3,34); g.fillRect(489,150,3,34);   // foul poles
-    // foul lines run WIDE out to the poles (1st/3rd sit far to the sides along these)
-    g.strokeStyle=C.line; g.lineWidth=3; g.beginPath(); g.moveTo(PLATE.x,PLATE.y-6); g.lineTo(22,186); g.moveTo(PLATE.x,PLATE.y-6); g.lineTo(490,186); g.stroke();
+    g.beginPath(); g.moveTo(0,H); g.lineTo(0,193);
+    g.arc(256,900,752, Math.PI*1.389, Math.PI*1.611, false); g.lineTo(W,193); g.lineTo(W,H); g.closePath(); g.fill();
+    signage(132);   // sponsor board on the wall
+    // shallow, low outfield wall spanning the width
+    g.strokeStyle=C.wall; g.lineWidth=14; g.beginPath(); g.arc(256,900,752,Math.PI*1.389,Math.PI*1.611); g.stroke();
+    g.strokeStyle=C.gold; g.lineWidth=2;  g.beginPath(); g.arc(256,900,745,Math.PI*1.389,Math.PI*1.611); g.stroke();
+    g.fillStyle=C.gold; g.fillRect(12,150,3,44); g.fillRect(497,150,3,44);   // foul poles at the far corners
+    // faint foul lines fan from home toward the corners (1st/3rd are off-camera)
+    g.strokeStyle=C.line; g.lineWidth=3; g.beginPath(); g.moveTo(256,392); g.lineTo(10,196); g.moveTo(256,392); g.lineTo(502,196); g.stroke();
 
     drawBatInfield();
     drawPitcher(MOUND.x,MOUND.y-6, game.ptimer>0 && state==='PITCH');
@@ -653,18 +652,13 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
   }
 
   function drawBatInfield(){
-    // WIDE diamond — 1st & 3rd pushed far out along the foul lines
-    const home={x:256,y:372}, b2={x:256,y:150}, b1={x:450,y:214}, b3={x:62,y:214};
-    // dirt base paths
-    g.strokeStyle=C.dirt; g.lineWidth=11; g.lineJoin='round';
-    g.beginPath(); g.moveTo(home.x,home.y); g.lineTo(b1.x,b1.y); g.lineTo(b2.x,b2.y); g.lineTo(b3.x,b3.y); g.closePath(); g.stroke();
-    // chalk lines
-    g.strokeStyle=C.line; g.lineWidth=2;
-    g.beginPath(); g.moveTo(home.x,home.y); g.lineTo(b1.x,b1.y); g.lineTo(b2.x,b2.y); g.lineTo(b3.x,b3.y); g.closePath(); g.stroke();
-    drawBase(b1.x,b1.y,game.bases[0]); drawBase(b2.x,b2.y,game.bases[1]); drawBase(b3.x,b3.y,game.bases[2]);
+    // flat, low-angle field — NO base diamond (1st/2nd/3rd are off-camera; runners are shown by the mini
+    // diamond, bottom-left). Just the foreground home-plate dirt and the pitcher's mound on the green.
+    const hg=g.createRadialGradient(256,406,12,256,406,150); hg.addColorStop(0,C.dirtHi); hg.addColorStop(1,C.dirtLo);
+    g.fillStyle=hg; g.beginPath(); g.ellipse(256,412,168,58,0,0,7); g.fill();          // home-plate dirt (foreground)
     // pitcher's mound (the source of the pitch)
-    const mg=g.createRadialGradient(MOUND.x,MOUND.y+4,4,MOUND.x,MOUND.y+4,46); mg.addColorStop(0,C.dirtHi); mg.addColorStop(1,C.dirtLo);
-    g.fillStyle=mg; g.beginPath(); g.ellipse(MOUND.x,MOUND.y+6,46,23,0,0,7); g.fill();
+    const mg=g.createRadialGradient(MOUND.x,MOUND.y+4,4,MOUND.x,MOUND.y+4,44); mg.addColorStop(0,C.dirtHi); mg.addColorStop(1,C.dirtLo);
+    g.fillStyle=mg; g.beginPath(); g.ellipse(MOUND.x,MOUND.y+6,44,18,0,0,7); g.fill();
     g.fillStyle=C.line; g.fillRect(MOUND.x-12,MOUND.y+4,24,4);
   }
   function drawBase(x,y,lit){ const f=game.baseFlash>0&&lit;
@@ -698,7 +692,7 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
 
   function drawBatter(){
     const bx=game.racketX, by=400, J=batJersey(), P=batPant(), Jd=batJd();   // batter is on the offence team
-    g.save(); g.translate(bx,by); g.scale(1.14,1.14); g.lineJoin='round';    // larger in the foreground (low camera)
+    g.save(); g.translate(bx,by); g.scale(1.22,1.22); g.lineJoin='round';    // large in the foreground (low camera)
     g.fillStyle='rgba(0,0,0,0.3)'; g.beginPath(); g.ellipse(0,24,17,5,0,0,7); g.fill();
     g.fillStyle=shade(P,0.96); rr(-10,10,7,20,3); g.fill(); rr(3,10,7,20,3); g.fill();   // stance legs
     g.fillStyle='#15151c'; g.beginPath(); g.ellipse(-6,30,4.5,2.4,0,0,7); g.fill(); g.beginPath(); g.ellipse(6,30,4.5,2.4,0,0,7); g.fill();
@@ -715,7 +709,7 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
     const lx=game.racketX, swing=game.swung;
     g.save();
     if(swing && state!=='FIELD'){ g.translate(lx,CONTACT_Y); g.rotate(-0.5); } else { g.translate(bx+6,by-14); g.rotate(0.6); }
-    g.scale(1.14,1.14);
+    g.scale(1.22,1.22);
     g.strokeStyle='#6a4a2a'; g.lineWidth=4; g.beginPath(); g.moveTo(0,0); g.lineTo(16,-2); g.stroke();       // handle
     g.strokeStyle=C.gold; g.lineWidth=3; g.beginPath(); g.ellipse(24,-3,8,11,0.3,0,7); g.stroke();           // head
     g.strokeStyle='rgba(240,240,250,0.7)'; g.lineWidth=1; g.beginPath(); g.moveTo(24,-13); g.lineTo(24,7); g.moveTo(16,-3); g.lineTo(32,-3); g.stroke();
@@ -723,7 +717,7 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
   }
   function drawCatcher(){
     const cx=256,cy=428, P=fieldPant(), Jd=fieldJd();   // catcher is on the fielding (defence) team
-    g.save(); g.translate(cx,cy); g.scale(1.12,1.12); g.lineJoin='round';   // larger foreground catcher
+    g.save(); g.translate(cx,cy); g.scale(1.18,1.18); g.lineJoin='round';   // larger foreground catcher
     g.fillStyle='rgba(0,0,0,0.3)'; g.beginPath(); g.ellipse(0,16,18,5,0,0,7); g.fill();
     g.fillStyle=shade(P,0.92); rr(-13,6,9,12,4); g.fill(); rr(4,6,9,12,4); g.fill();         // crouched shins
     const cg=g.createLinearGradient(-16,0,16,0); cg.addColorStop(0,shade(Jd,1.12)); cg.addColorStop(1,shade(Jd,0.8));
