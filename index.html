@@ -773,12 +773,13 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
   function panel(x,y,w,h){ const gd=g.createLinearGradient(0,y,0,y+h); gd.addColorStop(0,C.panelHi); gd.addColorStop(1,C.panel);
     g.fillStyle=gd; rr(x,y,w,h,8); g.fill(); g.strokeStyle=C.panelEdge; g.lineWidth=3; rr(x+2,y+2,w-4,h-4,6); g.stroke(); }
   function drawBSO(){
-    // balls / strikes / outs — bottom-left
-    panel(8,286,118,80);
-    const ox=40, oy=304;
-    txt('B',ox-26,oy,C.yellow,13,'left');    for(let i=0;i<3;i++) dot(ox+i*22,oy,7,i<game.balls,C.yellow);
-    txt('S',ox-26,oy+26,C.green,13,'left');  for(let i=0;i<2;i++) dot(ox+i*22,oy+26,7,i<game.strikes,C.green);
-    txt('O',ox-26,oy+52,C.red,13,'left');    for(let i=0;i<2;i++) dot(ox+i*22,oy+52,7,i<game.outs,C.red);
+    // balls / strikes / outs — compact (~1/3 size), just above the base-mini diamond (bottom-left)
+    const px=8, py=332, pw=58, ph=48;
+    panel(px,py,pw,ph);
+    const lx=px+8, ox=px+24, oy=py+13, dr=4, sp=13, rh=13;
+    txt('B',lx,oy,C.yellow,10,'left');     for(let i=0;i<3;i++) dot(ox+i*sp,oy,dr,i<game.balls,C.yellow);
+    txt('S',lx,oy+rh,C.green,10,'left');   for(let i=0;i<2;i++) dot(ox+i*sp,oy+rh,dr,i<game.strikes,C.green);
+    txt('O',lx,oy+rh*2,C.red,10,'left');   for(let i=0;i<2;i++) dot(ox+i*sp,oy+rh*2,dr,i<game.outs,C.red);
   }
   // ── team line-score across the top (Image 3) ──
   function drawLinescore(){
