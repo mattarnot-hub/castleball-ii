@@ -129,19 +129,20 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
     a.gain.setValueAtTime(v,c.currentTime); a.gain.exponentialRampToValueAtTime(0.0001,c.currentTime+d); o.start(); o.stop(c.currentTime+d);}catch(e){} }
   function chord(fs,d){ fs.forEach((f,i)=>setTimeout(()=>beep(f,d),i*60)); }
 
-  // ── background music — an original upbeat ballpark chiptune loop (self-contained) ──
+  // ── background music — a chiptune arrangement of "Jerusalem" (Parry, 1916; public domain) ──
   const N={C3:130.81,E3:164.81,F3:174.61,G3:196,A3:220,C4:261.63,D4:293.66,E4:329.63,F4:349.23,G4:392,A4:440,B4:493.88,C5:523.25,D5:587.33,E5:659.25};
-  const MEL=[N.C5,0,N.G4,N.C5, N.E5,0,N.C5,0, N.A4,0,N.F4,N.A4, N.C5,0,N.A4,0, N.B4,0,N.G4,N.B4, N.D5,0,N.B4,0, N.C5,0,N.E5,0, N.G4,0,N.E4,N.C4];
-  const BASS=[N.C3,N.G3,N.C3,N.G3, N.F3,N.C4,N.F3,N.C4, N.G3,N.D4,N.G3,N.D4, N.C3,N.G3,N.C3,N.G3];
+  // melody as quarter notes (note on even steps, rest on odd) — two phrases of the hymn, looped
+  const MEL=[N.G3,0,N.C4,0,N.C4,0,N.E4,0, N.G4,0,N.G4,0,N.F4,0,N.E4,0, N.D4,0,N.E4,0,N.F4,0,N.G4,0, N.E4,0,N.D4,0,N.C4,0,N.G3,0];
+  const BASS=[N.C3,N.C3,N.C3,N.C3, N.G3,N.G3,N.G3,N.C3, N.C3,N.C3,N.F3,N.F3, N.G3,N.G3,N.C3,N.C3];
   function mnote(freq,t,dur,type,vol){ if(!freq) return; const o=actx.createOscillator(),a=actx.createGain();
     o.type=type; o.frequency.setValueAtTime(freq,t); a.gain.setValueAtTime(0.0001,t); a.gain.linearRampToValueAtTime(vol,t+0.012);
     a.gain.exponentialRampToValueAtTime(0.0001,t+dur); o.connect(a); a.connect(actx.destination); o.start(t); o.stop(t+dur+0.03); }
   function musicScheduler(){ if(!actx) return;
     if(!musicOn){ musicNext=actx.currentTime; return; }            // paused: keep the clock caught up so it resumes cleanly
-    const step=0.2273;                                             // eighth note @ ~132 bpm
+    const step=0.27;                                               // quarter = 2 steps -> stately hymn tempo
     while(musicNext < actx.currentTime+0.3){ const s=musicStep%32;
-      if(MEL[s]) mnote(MEL[s], musicNext, step*1.7, 'triangle', 0.05);
-      if(s%2===0){ const b=BASS[(s/2)%16]; if(b) mnote(b, musicNext, step*1.8, 'square', 0.04); }
+      if(MEL[s]) mnote(MEL[s], musicNext, step*2.2, 'triangle', 0.055);
+      if(s%2===0){ const b=BASS[(s/2)%16]; if(b) mnote(b, musicNext, step*2.6, 'square', 0.038); }
       musicNext+=step; musicStep++;
     } }
   function startMusic(){ const c=ac(); if(!c) return; if(c.state==='suspended') c.resume();
@@ -601,23 +602,37 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
     g.fillStyle=shade(cap,0.82); rr(cx-r*1.05,cy-r*0.22,r*2.1,r*0.5,r*0.22); g.fill();
   }
 
-  // smooth, shaded, hand-drawn-style player (fielders / runners) with idle bob
+  // hand-drawn, athletic player (fielders / runners): tapered torso, jointed limbs, cleats, inked shading
   function player(x,y,jersey,pant,sc,idx){
     sc=sc||1; idx=idx||0;
-    g.save(); g.translate(x, y + Math.sin((game.t+idx*9)/16)*1.3); g.scale(sc,sc); g.lineJoin='round';
-    g.fillStyle='rgba(0,0,0,0.26)'; g.beginPath(); g.ellipse(0,16,9,3,0,0,7); g.fill();              // shadow
-    g.fillStyle=shade(pant,0.95); rr(-5,3,4,12,2); g.fill(); rr(1,3,4,12,2); g.fill();                // legs
-    g.fillStyle='#15151c'; g.beginPath(); g.ellipse(-3,16,3.2,1.8,0,0,7); g.fill(); g.beginPath(); g.ellipse(3,16,3.2,1.8,0,0,7); g.fill();
-    g.fillStyle=shade(jersey,0.8); rr(4.6,-7,3.4,11,1.7); g.fill();                                    // back arm
-    g.fillStyle=shade(C.skin,0.92); g.beginPath(); g.arc(6.3,4.5,2,0,7); g.fill();
-    const jg=g.createLinearGradient(-7,0,7,0); jg.addColorStop(0,shade(jersey,1.14)); jg.addColorStop(0.55,jersey); jg.addColorStop(1,shade(jersey,0.78));
-    g.fillStyle=jg; rr(-7,-8,14,13,5); g.fill();                                                       // torso
-    g.strokeStyle='rgba(0,0,0,0.28)'; g.lineWidth=1; rr(-7,-8,14,13,5); g.stroke();
-    g.fillStyle=shade(jersey,1.04); rr(-8.4,-7,3.4,10,1.7); g.fill();                                  // front arm
-    g.fillStyle='#7a5230'; g.beginPath(); g.arc(-7.2,4.6,3,0,7); g.fill();                             // glove
-    g.strokeStyle='rgba(0,0,0,0.3)'; g.beginPath(); g.arc(-7.2,4.6,3,0,7); g.stroke();
-    g.fillStyle=shade(C.skin,0.9); rr(-1.6,-12.5,3.2,4,1.2); g.fill();                                 // neck
-    drawHead(0,-14,5,C.navy);
+    g.save(); g.translate(x, y + Math.sin((game.t+idx*9)/16)*1.2); g.scale(sc,sc); g.lineJoin='round'; g.lineCap='round';
+    const ink='rgba(18,18,26,0.55)', jHi=shade(jersey,1.16), jSh=shade(jersey,0.8),
+          pM=pant, pHi=shade(pant,1.06), sk=shade(C.skin,0.98), skD=shade(C.skin,0.8);
+    g.fillStyle='rgba(0,0,0,0.24)'; g.beginPath(); g.ellipse(0,17,10,3,0,0,7); g.fill();               // ground shadow
+    // legs — thigh + shin with a knee, cleat at the foot
+    const leg=(hx)=>{ const d=hx<0?-1:1, kx=hx+d*0.8, ax=hx+d*1.4;
+      g.strokeStyle=ink; g.lineWidth=5.6; g.beginPath(); g.moveTo(hx,2.5); g.lineTo(kx,10); g.lineTo(ax,16); g.stroke();
+      g.strokeStyle=pM; g.lineWidth=4.4; g.beginPath(); g.moveTo(hx,2.5); g.lineTo(kx,10); g.stroke();
+      g.lineWidth=3.4; g.beginPath(); g.moveTo(kx,10); g.lineTo(ax,16); g.stroke();
+      g.strokeStyle=pHi; g.lineWidth=1.1; g.beginPath(); g.moveTo(hx-0.7,3.5); g.lineTo(kx-0.7,9.5); g.stroke();
+      g.fillStyle='#141018'; g.beginPath(); g.ellipse(ax+d*0.8,16.6,3,1.7,0,0,7); g.fill(); };
+    leg(-3); leg(3);
+    // arms — shoulder -> elbow -> hand, with a mitt on the front hand
+    const arm=(sx,front,glove)=>{ const d=sx<0?-1:1, ex=sx+d*1.6, hx2=sx+d*0.9;
+      g.strokeStyle=ink; g.lineWidth=4.6; g.beginPath(); g.moveTo(sx,-7); g.lineTo(ex,-1); g.lineTo(hx2,5); g.stroke();
+      g.strokeStyle=front?jersey:jSh; g.lineWidth=3.2; g.beginPath(); g.moveTo(sx,-7); g.lineTo(ex,-1); g.lineTo(hx2,5); g.stroke();
+      if(glove){ g.fillStyle='#7a5230'; g.beginPath(); g.arc(hx2,5.5,2.9,0,7); g.fill(); g.strokeStyle=ink; g.lineWidth=0.9; g.stroke(); }
+      else { g.fillStyle=sk; g.beginPath(); g.arc(hx2,5,2,0,7); g.fill(); } };
+    arm(6.4,false,false);                                                                              // back arm (behind torso)
+    // torso — athletic V taper, lit from the left
+    g.beginPath(); g.moveTo(-7.6,-8); g.quadraticCurveTo(0,-10,7.6,-8); g.lineTo(5.4,4.5); g.quadraticCurveTo(0,5.4,-5.4,4.5); g.closePath();
+    const tg=g.createLinearGradient(-7.6,0,7.6,0); tg.addColorStop(0,jHi); tg.addColorStop(0.5,jersey); tg.addColorStop(1,shade(jersey,0.72));
+    g.fillStyle=tg; g.fill(); g.strokeStyle=ink; g.lineWidth=1; g.stroke();
+    g.save(); g.globalAlpha=0.45; g.fillStyle=shade(jersey,1.28); g.beginPath(); g.ellipse(-2.6,-3,2,4,0.15,0,7); g.fill(); g.restore();  // chest highlight
+    g.fillStyle=shade(pant,0.55); rr(-5.6,3.4,11.2,2.3,1); g.fill();                                   // belt
+    arm(-6.4,true,true);                                                                               // front arm + glove
+    g.fillStyle=skD; rr(-1.8,-12.6,3.6,4.6,1.4); g.fill();                                             // neck
+    drawHead(0,-14.6,5.2,C.navy);
     g.restore();
   }
 
