@@ -129,20 +129,21 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
     a.gain.setValueAtTime(v,c.currentTime); a.gain.exponentialRampToValueAtTime(0.0001,c.currentTime+d); o.start(); o.stop(c.currentTime+d);}catch(e){} }
   function chord(fs,d){ fs.forEach((f,i)=>setTimeout(()=>beep(f,d),i*60)); }
 
-  // ── background music — a chiptune arrangement of "Jerusalem" (Parry, 1916; public domain) ──
+  // ── background music — a chiptune "Take Me Out to the Ball Game" (Von Tilzer, 1908; public domain) ──
   const N={C3:130.81,E3:164.81,F3:174.61,G3:196,A3:220,C4:261.63,D4:293.66,E4:329.63,F4:349.23,G4:392,A4:440,B4:493.88,C5:523.25,D5:587.33,E5:659.25};
-  // melody as quarter notes (note on even steps, rest on odd) — two phrases of the hymn, looped
-  const MEL=[N.G3,0,N.C4,0,N.C4,0,N.E4,0, N.G4,0,N.G4,0,N.F4,0,N.E4,0, N.D4,0,N.E4,0,N.F4,0,N.G4,0, N.E4,0,N.D4,0,N.C4,0,N.G3,0];
-  const BASS=[N.C3,N.C3,N.C3,N.C3, N.G3,N.G3,N.G3,N.C3, N.C3,N.C3,N.F3,N.F3, N.G3,N.G3,N.C3,N.C3];
+  // melody on even steps (quarter notes), rests on odd — the two opening chorus phrases, looped
+  // "Take me out to the ball game"            "Take me out with the crowd"
+  const MEL=[N.C5,0,N.C5,0,N.A4,0,N.G4,0, N.E4,0,N.G4,0,N.D4,0,0,0, N.C5,0,N.C5,0,N.A4,0,N.G4,0, N.E4,0,N.D4,0,0,0,0,0];
+  const BASS=[N.C3,N.C3,N.C3,N.G3, N.C3,N.G3,N.C3,N.C3, N.C3,N.C3,N.C3,N.G3, N.C3,N.G3,N.C3,N.C3];
   function mnote(freq,t,dur,type,vol){ if(!freq) return; const o=actx.createOscillator(),a=actx.createGain();
     o.type=type; o.frequency.setValueAtTime(freq,t); a.gain.setValueAtTime(0.0001,t); a.gain.linearRampToValueAtTime(vol,t+0.012);
     a.gain.exponentialRampToValueAtTime(0.0001,t+dur); o.connect(a); a.connect(actx.destination); o.start(t); o.stop(t+dur+0.03); }
   function musicScheduler(){ if(!actx) return;
     if(!musicOn){ musicNext=actx.currentTime; return; }            // paused: keep the clock caught up so it resumes cleanly
-    const step=0.27;                                               // quarter = 2 steps -> stately hymn tempo
+    const step=0.27;                                               // quarter = 2 steps
     while(musicNext < actx.currentTime+0.3){ const s=musicStep%32;
-      if(MEL[s]) mnote(MEL[s], musicNext, step*2.2, 'triangle', 0.055);
-      if(s%2===0){ const b=BASS[(s/2)%16]; if(b) mnote(b, musicNext, step*2.6, 'square', 0.038); }
+      if(MEL[s]) mnote(MEL[s], musicNext, step*1.9, 'square', 0.07);     // bright, prominent lead so the tune is clear
+      if(s%2===0){ const b=BASS[(s/2)%16]; if(b) mnote(b, musicNext, step*2.4, 'triangle', 0.03); }  // soft bass underneath
       musicNext+=step; musicStep++;
     } }
   function startMusic(){ const c=ac(); if(!c) return; if(c.state==='suspended') c.resume();
@@ -725,17 +726,29 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
 
   function drawPitcher(x,y,wind){
     const J=fieldJersey(), P=fieldPant();   // pitcher is on the fielding (defence) team
-    g.save(); g.translate(x,y); g.scale(0.85,0.85); g.lineJoin='round';   // slightly distant (deep in the field)
-    g.fillStyle='rgba(0,0,0,0.28)'; g.beginPath(); g.ellipse(0,26,17,5,0,0,7); g.fill();
-    g.fillStyle=shade(P,0.95); rr(-7,12,6,15,3); g.fill(); rr(1,12,6,15,3); g.fill();    // legs
-    g.fillStyle='#15151c'; g.beginPath(); g.ellipse(-4,27,4,2.2,0,0,7); g.fill(); g.beginPath(); g.ellipse(4,27,4,2.2,0,0,7); g.fill();
-    g.fillStyle=shade(J,0.82); if(wind){ rr(8,-18,5,16,2.5); } else { rr(8,-4,5,13,2.5); } g.fill();   // back arm
-    const jg=g.createLinearGradient(-10,0,10,0); jg.addColorStop(0,shade(J,1.12)); jg.addColorStop(0.55,J); jg.addColorStop(1,shade(J,0.78));
-    g.fillStyle=jg; rr(-9,-6,18,19,7); g.fill(); g.strokeStyle='rgba(0,0,0,0.25)'; g.lineWidth=1; rr(-9,-6,18,19,7); g.stroke();   // torso
-    g.fillStyle=shade(J,1.04);
-    if(wind){ rr(-13,-18,5,16,2.5); g.fill(); g.fillStyle=C.ball; g.beginPath(); g.arc(-10.5,-18,3,0,7); g.fill(); }   // front arm + ball
-    else { rr(-13,-4,5,13,2.5); g.fill(); g.fillStyle=shade(C.skin,0.92); g.beginPath(); g.arc(-10.5,9,2.2,0,7); g.fill(); }
-    g.fillStyle=shade(C.skin,0.9); rr(-2,-11,4,4,1.4); g.fill();      // neck
+    g.save(); g.translate(x,y); g.scale(0.85,0.85); g.lineJoin='round'; g.lineCap='round';   // slightly distant (deep in the field)
+    const ink='rgba(16,16,24,0.55)', jHi=shade(J,1.16), jSh=shade(J,0.8), pM=P, pHi=shade(P,1.06);
+    g.fillStyle='rgba(0,0,0,0.28)'; g.beginPath(); g.ellipse(0,27,16,5,0,0,7); g.fill();               // shadow
+    const leg=(hx)=>{ const d=hx<0?-1:1, kx=hx+d*0.9, ax=hx+d*1.5;
+      g.strokeStyle=ink; g.lineWidth=6.6; g.beginPath(); g.moveTo(hx,9); g.lineTo(kx,18); g.lineTo(ax,26); g.stroke();
+      g.strokeStyle=pM; g.lineWidth=5.2; g.beginPath(); g.moveTo(hx,9); g.lineTo(kx,18); g.stroke();
+      g.lineWidth=4; g.beginPath(); g.moveTo(kx,18); g.lineTo(ax,26); g.stroke();
+      g.strokeStyle=pHi; g.lineWidth=1.1; g.beginPath(); g.moveTo(hx-0.8,10); g.lineTo(kx-0.8,17); g.stroke();
+      g.fillStyle='#141018'; g.beginPath(); g.ellipse(ax+d*0.9,26.4,3.2,1.9,0,0,7); g.fill(); };
+    leg(-4); leg(4);
+    const bH = wind?[11,-19]:[12,7], fH = wind?[-11,-19]:[-12,7];                                       // hands raise on the windup
+    g.strokeStyle=ink; g.lineWidth=5; g.beginPath(); g.moveTo(7,-6); g.lineTo(bH[0],bH[1]); g.stroke();  // back arm
+    g.strokeStyle=jSh; g.lineWidth=3.4; g.beginPath(); g.moveTo(7,-6); g.lineTo(bH[0],bH[1]); g.stroke();
+    // torso — athletic V taper
+    g.beginPath(); g.moveTo(-9,-8); g.quadraticCurveTo(0,-10,9,-8); g.lineTo(6.6,7); g.quadraticCurveTo(0,8,-6.6,7); g.closePath();
+    const tg=g.createLinearGradient(-9,0,9,0); tg.addColorStop(0,jHi); tg.addColorStop(0.5,J); tg.addColorStop(1,shade(J,0.72));
+    g.fillStyle=tg; g.fill(); g.strokeStyle=ink; g.lineWidth=1; g.stroke();
+    g.fillStyle=shade(P,0.55); rr(-6.6,6,13.2,2.4,1.1); g.fill();                                        // belt
+    g.strokeStyle=ink; g.lineWidth=5; g.beginPath(); g.moveTo(-7,-6); g.lineTo(fH[0],fH[1]); g.stroke(); // front arm
+    g.strokeStyle=J; g.lineWidth=3.4; g.beginPath(); g.moveTo(-7,-6); g.lineTo(fH[0],fH[1]); g.stroke();
+    if(wind){ g.fillStyle=C.ball; g.beginPath(); g.arc(fH[0],fH[1],3,0,7); g.fill(); }                   // ball in hand
+    else { g.fillStyle=shade(C.skin,0.92); g.beginPath(); g.arc(fH[0],fH[1],2.1,0,7); g.fill(); }
+    g.fillStyle=shade(C.skin,0.9); rr(-2,-11,4,4,1.4); g.fill();                                         // neck
     drawHead(0,-13,6,C.navy);
     g.restore();
   }
@@ -747,17 +760,36 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
   }
 
   function drawBatter(){
-    const bx=game.racketX, by=400, J=batJersey(), P=batPant(), Jd=batJd();   // batter is on the offence team
-    g.save(); g.translate(bx,by); g.scale(1.22,1.22); g.lineJoin='round';    // large in the foreground (low camera)
-    g.fillStyle='rgba(0,0,0,0.3)'; g.beginPath(); g.ellipse(0,24,17,5,0,0,7); g.fill();
-    g.fillStyle=shade(P,0.96); rr(-10,10,7,20,3); g.fill(); rr(3,10,7,20,3); g.fill();   // stance legs
-    g.fillStyle='#15151c'; g.beginPath(); g.ellipse(-6,30,4.5,2.4,0,0,7); g.fill(); g.beginPath(); g.ellipse(6,30,4.5,2.4,0,0,7); g.fill();
-    const jg=g.createLinearGradient(-11,0,11,0); jg.addColorStop(0,shade(J,1.14)); jg.addColorStop(0.55,J); jg.addColorStop(1,shade(J,0.76));
-    g.fillStyle=jg; rr(-10,-12,20,24,8); g.fill(); g.strokeStyle='rgba(0,0,0,0.28)'; g.lineWidth=1; rr(-10,-12,20,24,8); g.stroke();   // torso
-    g.fillStyle=shade(J,1.03); rr(2,-10,6,12,3); g.fill();                          // lead arm
-    g.fillStyle=shade(C.skin,0.95); g.beginPath(); g.arc(9.5,-1,2.6,0,7); g.fill();       // hands
-    g.fillStyle=shade(C.skin,0.9); rr(-2.4,-18,4.8,5,1.6); g.fill();                      // neck
-    drawHead(0,-20,7,Jd);                                                                  // batting helmet
+    const bx=game.racketX, by=400, J=batJersey(), P=batPant(), Jd=batJd();   // batter is on the offence team (from behind)
+    g.save(); g.translate(bx,by); g.scale(1.22,1.22); g.lineJoin='round'; g.lineCap='round';   // large foreground
+    const ink='rgba(16,16,24,0.55)', jHi=shade(J,1.16), jSh=shade(J,0.78), pM=P, pHi=shade(P,1.06);
+    g.fillStyle='rgba(0,0,0,0.3)'; g.beginPath(); g.ellipse(0,27,18,5,0,0,7); g.fill();               // shadow
+    // legs — open batting stance (feet apart, knees bent), thigh+shin+cleat
+    const leg=(hx,fo)=>{ const kx=hx*0.75, ax=hx+fo;
+      g.strokeStyle=ink; g.lineWidth=8; g.beginPath(); g.moveTo(hx*0.55,8); g.lineTo(kx,18); g.lineTo(ax,28); g.stroke();
+      g.strokeStyle=pM; g.lineWidth=6.4; g.beginPath(); g.moveTo(hx*0.55,8); g.lineTo(kx,18); g.stroke();
+      g.lineWidth=5; g.beginPath(); g.moveTo(kx,18); g.lineTo(ax,28); g.stroke();
+      g.strokeStyle=pHi; g.lineWidth=1.4; g.beginPath(); g.moveTo(hx*0.55-1,9); g.lineTo(kx-1,17); g.stroke();
+      g.fillStyle='#141018'; g.beginPath(); g.ellipse(ax+(fo>0?1.6:-1.6),29,4,2.3,0,0,7); g.fill(); };
+    leg(-7,-3); leg(7,3);
+    // torso — broad-shouldered V taper seen from behind, lit from the left
+    g.beginPath(); g.moveTo(-10.5,-11); g.quadraticCurveTo(0,-13.5,10.5,-11); g.lineTo(7,9); g.quadraticCurveTo(0,10.5,-7,9); g.closePath();
+    const tg=g.createLinearGradient(-10.5,0,10.5,0); tg.addColorStop(0,jHi); tg.addColorStop(0.5,J); tg.addColorStop(1,shade(J,0.7));
+    g.fillStyle=tg; g.fill(); g.strokeStyle=ink; g.lineWidth=1.2; g.stroke();
+    g.save(); g.globalAlpha=0.35; g.fillStyle=shade(J,1.3); g.beginPath(); g.ellipse(-3.6,-2,2.4,6,0.1,0,7); g.fill(); g.restore();   // shoulder-blade highlight
+    g.fillStyle=shade(P,0.55); rr(-7.4,8,14.8,3,1.3); g.fill();                                        // belt
+    // both arms raised, hands together on the bat grip (upper right)
+    const gx=11.5, gy=-14;
+    g.strokeStyle=ink; g.lineWidth=6; g.beginPath(); g.moveTo(7,-9); g.lineTo(12,-4); g.lineTo(gx,gy); g.stroke();       // back arm
+    g.strokeStyle=jSh; g.lineWidth=4.4; g.beginPath(); g.moveTo(7,-9); g.lineTo(12,-4); g.lineTo(gx,gy); g.stroke();
+    g.strokeStyle=ink; g.lineWidth=6; g.beginPath(); g.moveTo(-7,-9); g.lineTo(4,-8); g.lineTo(gx-1,gy+1); g.stroke();   // front arm crosses over
+    g.strokeStyle=J; g.lineWidth=4.4; g.beginPath(); g.moveTo(-7,-9); g.lineTo(4,-8); g.lineTo(gx-1,gy+1); g.stroke();
+    g.fillStyle=shade(C.skin,0.9); g.beginPath(); g.arc(gx,gy,2.6,0,7); g.fill();                       // batting-glove hands
+    // neck + batting helmet (from behind: dome + left ear flap)
+    g.fillStyle=shade(C.skin,0.86); rr(-2.6,-19,5.2,6,1.6); g.fill();
+    const hg=g.createRadialGradient(-2,-23,1,0,-21,7.5); hg.addColorStop(0,shade(Jd,1.2)); hg.addColorStop(1,shade(Jd,0.82));
+    g.fillStyle=hg; g.beginPath(); g.arc(0,-21,7.2,0,7); g.fill(); g.strokeStyle=ink; g.lineWidth=1; g.stroke();
+    g.fillStyle=shade(Jd,0.72); g.beginPath(); g.arc(-6,-19.5,2.6,0,7); g.fill();                       // ear flap
     g.restore();
     drawRacket(bx,by-6);
   }
@@ -772,15 +804,25 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
     g.restore();
   }
   function drawCatcher(){
-    const cx=256,cy=428, P=fieldPant(), Jd=fieldJd();   // catcher is on the fielding (defence) team
-    g.save(); g.translate(cx,cy); g.scale(1.18,1.18); g.lineJoin='round';   // larger foreground catcher
-    g.fillStyle='rgba(0,0,0,0.3)'; g.beginPath(); g.ellipse(0,16,18,5,0,0,7); g.fill();
-    g.fillStyle=shade(P,0.92); rr(-13,6,9,12,4); g.fill(); rr(4,6,9,12,4); g.fill();         // crouched shins
-    const cg=g.createLinearGradient(-16,0,16,0); cg.addColorStop(0,shade(Jd,1.12)); cg.addColorStop(1,shade(Jd,0.8));
-    g.fillStyle=cg; rr(-15,-10,30,22,10); g.fill(); g.strokeStyle='rgba(0,0,0,0.28)'; g.lineWidth=1; rr(-15,-10,30,22,10); g.stroke(); // chest protector
-    g.fillStyle='#8f8f9c'; g.beginPath(); g.arc(0,-16,9,0,7); g.fill();                                // helmet (back of head)
-    g.fillStyle=shade('#8f8f9c',1.2); g.beginPath(); g.arc(-3,-18,3,0,7); g.fill();
-    g.strokeStyle='rgba(0,0,0,0.4)'; g.lineWidth=1; for(let i=-7;i<=7;i+=3){ g.beginPath(); g.moveTo(i,-23); g.lineTo(i,-9); g.stroke(); } // mask bars
+    const cx=256,cy=426, J=fieldJersey(), P=fieldPant(), Jd=fieldJd();   // catcher (defence), crouched, from behind
+    g.save(); g.translate(cx,cy); g.scale(1.18,1.18); g.lineJoin='round'; g.lineCap='round';
+    const ink='rgba(16,16,24,0.55)', jHi=shade(Jd,1.14), pM=P;
+    g.fillStyle='rgba(0,0,0,0.3)'; g.beginPath(); g.ellipse(0,18,20,5,0,0,7); g.fill();                // shadow
+    // crouched legs — thighs splay out, shins drop to the feet
+    const leg=(hx)=>{ const d=hx<0?-1:1, kx=hx+d*4.5, ky=9, ax=hx+d*2.5, ay=17;
+      g.strokeStyle=ink; g.lineWidth=8.2; g.beginPath(); g.moveTo(hx*0.4,2); g.lineTo(kx,ky); g.lineTo(ax,ay); g.stroke();
+      g.strokeStyle=pM; g.lineWidth=6.6; g.beginPath(); g.moveTo(hx*0.4,2); g.lineTo(kx,ky); g.stroke();
+      g.lineWidth=5; g.beginPath(); g.moveTo(kx,ky); g.lineTo(ax,ay); g.stroke();
+      g.fillStyle='#141018'; g.beginPath(); g.ellipse(ax+d*1.2,17.4,3.8,2.1,0,0,7); g.fill(); };
+    leg(-5); leg(5);
+    // back / chest protector — rounded shell seen from behind, shaded, with the harness straps
+    g.beginPath(); g.moveTo(-13,-8); g.quadraticCurveTo(0,-12,13,-8); g.lineTo(11,8); g.quadraticCurveTo(0,11,-11,8); g.closePath();
+    const cg=g.createLinearGradient(-14,0,14,0); cg.addColorStop(0,jHi); cg.addColorStop(0.5,Jd); cg.addColorStop(1,shade(Jd,0.72));
+    g.fillStyle=cg; g.fill(); g.strokeStyle=ink; g.lineWidth=1.2; g.stroke();
+    g.strokeStyle='rgba(28,28,38,0.5)'; g.lineWidth=2.2; g.beginPath(); g.moveTo(-8,-7); g.lineTo(8,5); g.moveTo(8,-7); g.lineTo(-8,5); g.stroke();   // X harness
+    // helmet — back of the catcher's cage/skull cap
+    const hg=g.createRadialGradient(-2,-16,1,0,-14,8); hg.addColorStop(0,'#9a9aa8'); hg.addColorStop(1,'#565662');
+    g.fillStyle=hg; g.beginPath(); g.arc(0,-14,8,0,7); g.fill(); g.strokeStyle=ink; g.lineWidth=1; g.stroke();
     g.restore();
     if(state==='PITCH'){ const mx=game.pitch&&game.pitch.released?game.pitch.tx:BOX_C; g.fillStyle='#7a5230'; g.beginPath(); g.arc(mx,CONTACT_Y,7,0,7); g.fill(); g.strokeStyle='rgba(0,0,0,0.3)'; g.lineWidth=1; g.stroke(); } // catcher's mitt tracks the pitch
   }
