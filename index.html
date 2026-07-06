@@ -129,31 +129,29 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
     a.gain.setValueAtTime(v,c.currentTime); a.gain.exponentialRampToValueAtTime(0.0001,c.currentTime+d); o.start(); o.stop(c.currentTime+d);}catch(e){} }
   function chord(fs,d){ fs.forEach((f,i)=>setTimeout(()=>beep(f,d),i*60)); }
 
-  // ── background music — the full chorus of "Take Me Out to the Ball Game" (Von Tilzer, 1908; public domain) ──
-  const N={C3:130.81,E3:164.81,F3:174.61,G3:196,A3:220,B3:246.94,C4:261.63,D4:293.66,E4:329.63,F4:349.23,G4:392,A4:440,B4:493.88,C5:523.25,D5:587.33,E5:659.25};
-  const TMO=[   // one line per phrase; m = melody notes, c = bass chord root
-    {m:[N.G4,N.E4,N.C4,N.E4,N.D4,N.C4],      c:N.C3},   // Take me out to the ball game
-    {m:[N.B3,N.B3,N.A3,N.G3,N.F3],           c:N.G3},   // Take me out with the crowd
-    {m:[N.E4,N.C4,N.E4,N.D4,N.C4,N.A3],      c:N.C3},   // Buy me some peanuts and Cracker Jack
-    {m:[N.B3,N.C4,N.D4,N.E4,N.F4,N.G4],      c:N.G3},   // I don't care if I never get back
-    {m:[N.C5,N.C5,N.C5,N.C5,N.B4,N.C5,N.D5], c:N.C3},   // Let me root, root, root for the home team
-    {m:[N.E5,N.D5,N.C5,N.B4,N.A4],           c:N.F3},   // If they don't win, it's a shame
-    {m:[N.G4,N.G4,N.G4,N.E4,N.F4,N.G4],      c:N.G3},   // For it's one, two, three strikes you're out
-    {m:[N.A4,N.B4,N.C5],                     c:N.C3},   // At the old ball game
+  // ── background music — MELODY ONLY, the dictated note sequence (Take Me Out to the Ball Game; public domain) ──
+  const N={C4:261.63,D4:293.66,E4:329.63,F4:349.23,Fs4:369.99,G4:392,Gs4:415.30,A4:440,B4:493.88,C5:523.25,D5:587.33};
+  // each entry is [note, beats]; 0 = a rest. Tempo is ♩ = 170.
+  const SONG=[
+    [N.C4,2],[N.C5,1],[N.A4,1],[N.G4,1],[N.E4,1],[N.G4,3], [N.D4,3],
+    [N.C4,2],[N.C5,1],[N.A4,1],[N.G4,1],[N.E4,1],[N.G4,3], [N.G4,3],
+    [N.A4,1],[N.Gs4,1],[N.A4,1], [N.E4,1],[N.F4,1],[N.G4,1], [N.A4,2],[N.F4,1], [N.D4,3],
+    [N.A4,2],[N.A4,1], [N.A4,1],[N.B4,1],[N.C5,1], [N.D5,1],[N.B4,1],[N.A4,1], [N.G4,1],[N.E4,1],[N.D4,1],
+    [N.C4,2],[N.C5,1],[N.A4,1],[N.G4,1],[N.E4,1],[N.G4,3],
+    [N.D4,2],[N.D4,1], [N.C4,2],[N.D4,1], [N.E4,1],[N.F4,1],[N.G4,1], [N.A4,3],
+    [0,1],[N.A4,1],[N.B4,1], [N.C5,3],[N.C5,3], [N.C5,1],[N.B4,1],[N.A4,1], [N.G4,1],[N.Fs4,1],[N.G4,1], [N.A4,3],
+    [N.B4,3],[N.C5,3],[N.C5,3],
   ];
-  const MEL=[], CHORD=[];
-  TMO.forEach(ln=>{ ln.m.forEach(n=>{ MEL.push(n); CHORD.push(ln.c); }); MEL.push(0); CHORD.push(ln.c); });  // held rest ends each phrase
-  MEL.push(0,0); CHORD.push(N.C3,N.C3);   // extra breath before the loop repeats
   function mnote(freq,t,dur,type,vol){ if(!freq) return; const o=actx.createOscillator(),a=actx.createGain();
     o.type=type; o.frequency.setValueAtTime(freq,t); a.gain.setValueAtTime(0.0001,t); a.gain.linearRampToValueAtTime(vol,t+0.012);
     a.gain.exponentialRampToValueAtTime(0.0001,t+dur); o.connect(a); a.connect(actx.destination); o.start(t); o.stop(t+dur+0.03); }
   function musicScheduler(){ if(!actx) return;
     if(!musicOn){ musicNext=actx.currentTime; return; }            // paused: keep the clock caught up so it resumes cleanly
-    const step=0.34, len=MEL.length;                               // one melody note per step
-    while(musicNext < actx.currentTime+0.3){ const s=musicStep%len;
-      if(MEL[s]) mnote(MEL[s], musicNext, step*1.4, 'square', 0.07);     // bright, prominent lead so the tune is clear
-      if(s%2===0 && CHORD[s]) mnote(CHORD[s], musicNext, step*1.9, 'triangle', 0.03);  // soft bass underneath
-      musicNext+=step; musicStep++;
+    const beat=60/170;                                             // tempo ♩ = 170
+    while(musicNext < actx.currentTime+0.4){
+      const nt=SONG[musicStep % SONG.length], dur=nt[1]*beat;
+      if(nt[0]) mnote(nt[0], musicNext, dur*0.9, 'square', 0.07);   // MELODY ONLY, bright lead
+      musicNext += dur; musicStep++;
     } }
   function startMusic(){ const c=ac(); if(!c) return; if(c.state==='suspended') c.resume();
     if(!musicStarted){ musicStarted=true; musicNext=c.currentTime+0.15; musicStep=0; setInterval(musicScheduler,60); } }
