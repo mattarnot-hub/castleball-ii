@@ -734,31 +734,31 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
     if(lit){ g.fillStyle=C.red; g.fillRect(-2,-2,4,4);} g.restore(); }
 
   function drawPitcher(x,y,wind){
-    const J=fieldJersey(), P=fieldPant();   // pitcher is on the fielding (defence) team
-    g.save(); g.translate(x,y); g.scale(0.85,0.85); g.lineJoin='round'; g.lineCap='round';   // slightly distant (deep in the field)
-    const ink='rgba(16,16,24,0.55)', jHi=shade(J,1.16), jSh=shade(J,0.8), pM=P, pHi=shade(P,1.06);
-    g.fillStyle='rgba(0,0,0,0.28)'; g.beginPath(); g.ellipse(0,27,16,5,0,0,7); g.fill();               // shadow
-    const leg=(hx)=>{ const d=hx<0?-1:1, kx=hx+d*0.9, ax=hx+d*1.5;
-      g.strokeStyle=ink; g.lineWidth=6.6; g.beginPath(); g.moveTo(hx,9); g.lineTo(kx,18); g.lineTo(ax,26); g.stroke();
-      g.strokeStyle=pM; g.lineWidth=5.2; g.beginPath(); g.moveTo(hx,9); g.lineTo(kx,18); g.stroke();
-      g.lineWidth=4; g.beginPath(); g.moveTo(kx,18); g.lineTo(ax,26); g.stroke();
-      g.strokeStyle=pHi; g.lineWidth=1.1; g.beginPath(); g.moveTo(hx-0.8,10); g.lineTo(kx-0.8,17); g.stroke();
-      g.fillStyle='#141018'; g.beginPath(); g.ellipse(ax+d*0.9,26.4,3.2,1.9,0,0,7); g.fill(); };
-    leg(-4); leg(4);
-    const bH = wind?[11,-19]:[12,7], fH = wind?[-11,-19]:[-12,7];                                       // hands raise on the windup
-    g.strokeStyle=ink; g.lineWidth=5; g.beginPath(); g.moveTo(7,-6); g.lineTo(bH[0],bH[1]); g.stroke();  // back arm
-    g.strokeStyle=jSh; g.lineWidth=3.4; g.beginPath(); g.moveTo(7,-6); g.lineTo(bH[0],bH[1]); g.stroke();
-    // torso — athletic V taper
-    g.beginPath(); g.moveTo(-9,-8); g.quadraticCurveTo(0,-10,9,-8); g.lineTo(6.6,7); g.quadraticCurveTo(0,8,-6.6,7); g.closePath();
-    const tg=g.createLinearGradient(-9,0,9,0); tg.addColorStop(0,jHi); tg.addColorStop(0.5,J); tg.addColorStop(1,shade(J,0.72));
-    g.fillStyle=tg; g.fill(); g.strokeStyle=ink; g.lineWidth=1; g.stroke();
-    g.fillStyle=shade(P,0.55); rr(-6.6,6,13.2,2.4,1.1); g.fill();                                        // belt
-    g.strokeStyle=ink; g.lineWidth=5; g.beginPath(); g.moveTo(-7,-6); g.lineTo(fH[0],fH[1]); g.stroke(); // front arm
-    g.strokeStyle=J; g.lineWidth=3.4; g.beginPath(); g.moveTo(-7,-6); g.lineTo(fH[0],fH[1]); g.stroke();
-    if(wind){ g.fillStyle=C.ball; g.beginPath(); g.arc(fH[0],fH[1],3,0,7); g.fill(); }                   // ball in hand
-    else { g.fillStyle=shade(C.skin,0.92); g.beginPath(); g.arc(fH[0],fH[1],2.1,0,7); g.fill(); }
-    g.fillStyle=shade(C.skin,0.9); rr(-2,-11,4,4,1.4); g.fill();                                         // neck
-    drawHead(0,-13,6,C.navy);
+    const J=fieldJersey(), P=fieldPant();   // pitcher (defence): set position, then a dynamic leg-kick/throw on release
+    g.save(); g.translate(x,y); g.scale(0.85,0.85); g.lineJoin='round'; g.lineCap='round';
+    const ink='rgba(14,14,22,0.6)', jHi=shade(J,1.16), jSh=shade(J,0.8), pM=P;
+    g.fillStyle='rgba(0,0,0,0.28)'; g.beginPath(); g.ellipse(0,26,15,5,0,0,7); g.fill();
+    const seg=(pts,col,w)=>{ g.strokeStyle=ink; g.lineWidth=w+1.8; g.beginPath(); pts.forEach((p,i)=>i?g.lineTo(p[0],p[1]):g.moveTo(p[0],p[1])); g.stroke();
+      g.strokeStyle=col; g.lineWidth=w; g.beginPath(); pts.forEach((p,i)=>i?g.lineTo(p[0],p[1]):g.moveTo(p[0],p[1])); g.stroke(); };
+    const cleat=(cx,cy,a)=>{ g.fillStyle='#141018'; g.save(); g.translate(cx,cy); g.rotate(a||0); g.beginPath(); g.ellipse(0,0.6,3.2,1.9,0,0,7); g.fill(); g.restore(); };
+    const torso=()=>{ g.beginPath(); g.moveTo(-9,-8); g.quadraticCurveTo(0,-10,9,-8); g.lineTo(6.6,7); g.quadraticCurveTo(0,8,-6.6,7); g.closePath();
+      const tg=g.createLinearGradient(-9,0,9,0); tg.addColorStop(0,jHi); tg.addColorStop(0.5,J); tg.addColorStop(1,shade(J,0.72));
+      g.fillStyle=tg; g.fill(); g.strokeStyle=ink; g.lineWidth=1; g.stroke(); g.fillStyle=shade(P,0.55); rr(-6.6,6,13.2,2.4,1.1); g.fill(); };
+    if(wind){
+      seg([[3,8],[5,17],[4,26]], pM, 5.4); cleat(4,26);                 // pivot leg planted
+      seg([[-3,8],[-11,3],[-5,10]], pM, 5.4); cleat(-5,10,0.6);         // lead leg: knee driving up, shin tucked
+      torso();
+      seg([[7,-6],[13,-12],[10,-19]], jSh, 3.6); g.fillStyle=C.ball; g.beginPath(); g.arc(10,-19,2.4,0,7); g.fill();   // throwing arm cocked up-back + ball
+      seg([[-7,-6],[-12,-10],[-8,-3]], J, 3.6); g.fillStyle='#7a5230'; g.beginPath(); g.arc(-8,-3,3,0,7); g.fill();     // glove arm up
+    } else {
+      seg([[-4,8],[-5,17],[-4,26]], pM, 5); cleat(-4,26);
+      seg([[4,8],[5,17],[4,26]], pM, 5); cleat(4,26);
+      torso();
+      seg([[-7,-6],[-4,-1],[-1,2]], J, 3.4); seg([[7,-6],[4,-1],[1,2]], jSh, 3.4);   // hands in to the glove (set)
+      g.fillStyle='#7a5230'; g.beginPath(); g.arc(0,2,3.2,0,7); g.fill();
+    }
+    g.fillStyle=shade(C.skin,0.9); rr(-1.8,-13,3.6,4,1.4); g.fill();                                     // neck
+    drawHead(0,-15,4.6,C.navy);                                                                          // smaller, realistic head
     g.restore();
   }
 
@@ -769,44 +769,51 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
   }
 
   function drawBatter(){
-    const bx=game.racketX, by=400, J=batJersey(), P=batPant(), Jd=batJd();   // batter is on the offence team (from behind)
-    g.save(); g.translate(bx,by); g.scale(1.22,1.22); g.lineJoin='round'; g.lineCap='round';   // large foreground
-    const ink='rgba(16,16,24,0.55)', jHi=shade(J,1.16), jSh=shade(J,0.78), pM=P, pHi=shade(P,1.06);
-    g.fillStyle='rgba(0,0,0,0.3)'; g.beginPath(); g.ellipse(0,27,18,5,0,0,7); g.fill();               // shadow
-    // legs — open batting stance (feet apart, knees bent), thigh+shin+cleat
-    const leg=(hx,fo)=>{ const kx=hx*0.75, ax=hx+fo;
-      g.strokeStyle=ink; g.lineWidth=8; g.beginPath(); g.moveTo(hx*0.55,8); g.lineTo(kx,18); g.lineTo(ax,28); g.stroke();
-      g.strokeStyle=pM; g.lineWidth=6.4; g.beginPath(); g.moveTo(hx*0.55,8); g.lineTo(kx,18); g.stroke();
-      g.lineWidth=5; g.beginPath(); g.moveTo(kx,18); g.lineTo(ax,28); g.stroke();
-      g.strokeStyle=pHi; g.lineWidth=1.4; g.beginPath(); g.moveTo(hx*0.55-1,9); g.lineTo(kx-1,17); g.stroke();
-      g.fillStyle='#141018'; g.beginPath(); g.ellipse(ax+(fo>0?1.6:-1.6),29,4,2.3,0,0,7); g.fill(); };
-    leg(-7,-3); leg(7,3);
-    // torso — broad-shouldered V taper seen from behind, lit from the left
-    g.beginPath(); g.moveTo(-10.5,-11); g.quadraticCurveTo(0,-13.5,10.5,-11); g.lineTo(7,9); g.quadraticCurveTo(0,10.5,-7,9); g.closePath();
-    const tg=g.createLinearGradient(-10.5,0,10.5,0); tg.addColorStop(0,jHi); tg.addColorStop(0.5,J); tg.addColorStop(1,shade(J,0.7));
-    g.fillStyle=tg; g.fill(); g.strokeStyle=ink; g.lineWidth=1.2; g.stroke();
-    g.save(); g.globalAlpha=0.35; g.fillStyle=shade(J,1.3); g.beginPath(); g.ellipse(-3.6,-2,2.4,6,0.1,0,7); g.fill(); g.restore();   // shoulder-blade highlight
-    g.fillStyle=shade(P,0.55); rr(-7.4,8,14.8,3,1.3); g.fill();                                        // belt
-    // both arms raised, hands together on the bat grip (upper right)
-    const gx=11.5, gy=-14;
-    g.strokeStyle=ink; g.lineWidth=6; g.beginPath(); g.moveTo(7,-9); g.lineTo(12,-4); g.lineTo(gx,gy); g.stroke();       // back arm
-    g.strokeStyle=jSh; g.lineWidth=4.4; g.beginPath(); g.moveTo(7,-9); g.lineTo(12,-4); g.lineTo(gx,gy); g.stroke();
-    g.strokeStyle=ink; g.lineWidth=6; g.beginPath(); g.moveTo(-7,-9); g.lineTo(4,-8); g.lineTo(gx-1,gy+1); g.stroke();   // front arm crosses over
-    g.strokeStyle=J; g.lineWidth=4.4; g.beginPath(); g.moveTo(-7,-9); g.lineTo(4,-8); g.lineTo(gx-1,gy+1); g.stroke();
-    g.fillStyle=shade(C.skin,0.9); g.beginPath(); g.arc(gx,gy,2.6,0,7); g.fill();                       // batting-glove hands
-    // neck + batting helmet (from behind: dome + left ear flap)
-    g.fillStyle=shade(C.skin,0.86); rr(-2.6,-19,5.2,6,1.6); g.fill();
-    const hg=g.createRadialGradient(-2,-23,1,0,-21,7.5); hg.addColorStop(0,shade(Jd,1.2)); hg.addColorStop(1,shade(Jd,0.82));
-    g.fillStyle=hg; g.beginPath(); g.arc(0,-21,7.2,0,7); g.fill(); g.strokeStyle=ink; g.lineWidth=1; g.stroke();
-    g.fillStyle=shade(Jd,0.72); g.beginPath(); g.arc(-6,-19.5,2.6,0,7); g.fill();                       // ear flap
+    const bx=game.racketX, by=400, J=batJersey(), P=batPant(), Jd=batJd();   // batter (from behind), realistic proportions
+    g.save(); g.translate(bx,by); g.scale(1.3,1.3); g.lineJoin='round'; g.lineCap='round';
+    const ink='rgba(12,12,20,0.62)', jHi=shade(J,1.2), jSh=shade(J,0.72), pM=P, pHi=shade(P,1.1),
+          sock='#f0f0f4', sockSh='#cacad2';
+    g.fillStyle='rgba(0,0,0,0.34)'; g.beginPath(); g.ellipse(0,30,19,4.5,0,0,7); g.fill();
+    // legs: pants (thigh) break into HIGH SOCKS (calf) + cleats — a real ballplayer's uniform, wide loaded stance
+    const leg=(hx,kx,ky,ax,fo)=>{
+      g.strokeStyle=ink; g.lineWidth=9.4; g.beginPath(); g.moveTo(hx,3); g.lineTo(kx,ky); g.stroke();
+      g.strokeStyle=pM; g.lineWidth=7.8; g.beginPath(); g.moveTo(hx,3); g.lineTo(kx,ky); g.stroke();
+      g.strokeStyle=pHi; g.lineWidth=1.6; g.beginPath(); g.moveTo(hx-1.5,4); g.lineTo(kx-1.5,ky-1); g.stroke();
+      g.strokeStyle=ink; g.lineWidth=6.2; g.beginPath(); g.moveTo(kx,ky); g.lineTo(ax,28); g.stroke();
+      g.strokeStyle=sock; g.lineWidth=4.6; g.beginPath(); g.moveTo(kx,ky); g.lineTo(ax,28); g.stroke();
+      g.strokeStyle=sockSh; g.lineWidth=1.2; g.beginPath(); g.moveTo(kx+1.2,ky+0.6); g.lineTo(ax+1.2,27.4); g.stroke();
+      g.fillStyle='#141018'; g.beginPath(); g.ellipse(ax+fo,29,4.4,2.3,0,0,7); g.fill(); };
+    leg(4.5, 9,16, 11, 2);
+    leg(-4.5, -9,16, -11, -2);
+    // pelvis + broad-shouldered V torso, belt, back number
+    g.fillStyle=shade(P,0.9); rr(-6.2,-1,12.4,5,2.5); g.fill();
+    g.beginPath(); g.moveTo(-11,-18); g.quadraticCurveTo(0,-20.5,11,-18); g.lineTo(6.4,1.5); g.quadraticCurveTo(0,3,-6.4,1.5); g.closePath();
+    const tg=g.createLinearGradient(-11,0,11,0); tg.addColorStop(0,jHi); tg.addColorStop(0.5,J); tg.addColorStop(1,shade(J,0.62));
+    g.fillStyle=tg; g.fill(); g.strokeStyle=ink; g.lineWidth=1.3; g.stroke();
+    g.save(); g.globalAlpha=0.4; g.fillStyle=shade(J,1.35); g.beginPath(); g.ellipse(-3.6,-8,2.4,6.5,0.08,0,7); g.fill(); g.restore();  // spine highlight
+    g.fillStyle='rgba(245,245,250,0.72)'; g.font='700 7px Arial'; g.textAlign='center'; g.textBaseline='middle'; g.fillText('7',0,-8);  // back number
+    g.fillStyle=shade(P,0.5); rr(-6.6,1,13.2,2.6,1.2); g.fill();
+    // arms up, hands cocked over the back shoulder
+    const gx=13, gy=-27;
+    const arm=(sx,ex,ey,col)=>{ const hgx=sx<0?gx-1.6:gx, hgy=sx<0?gy+1.6:gy;
+      g.strokeStyle=ink; g.lineWidth=6.4; g.beginPath(); g.moveTo(sx,-17); g.lineTo(ex,ey); g.lineTo(hgx,hgy); g.stroke();
+      g.strokeStyle=col; g.lineWidth=4.7; g.beginPath(); g.moveTo(sx,-17); g.lineTo(ex,ey); g.lineTo(hgx,hgy); g.stroke(); };
+    arm(9,15,-22,jSh); arm(-9,4,-22,J);
+    g.fillStyle=shade(C.skin,0.9); g.beginPath(); g.arc(gx,gy,2.4,0,7); g.fill();   // gloved hands
+    // neck + SMALL batting helmet (realistic head size) with a brim
+    g.fillStyle=shade(C.skin,0.8); rr(-2.2,-22.5,4.4,4.5,1.4); g.fill();
+    const hh=g.createRadialGradient(-1.6,-29,0.5,0,-27,5.2); hh.addColorStop(0,shade(Jd,1.3)); hh.addColorStop(1,shade(Jd,0.76));
+    g.fillStyle=hh; g.beginPath(); g.arc(0,-27,4.7,0,7); g.fill(); g.strokeStyle=ink; g.lineWidth=1; g.stroke();
+    g.fillStyle=shade(Jd,0.7); g.beginPath(); g.arc(-4,-26,1.7,0,7); g.fill();        // ear flap
+    g.save(); g.translate(-4.4,-26.6); g.rotate(-0.2); g.fillStyle=shade(Jd,0.58); rr(-3.6,-1,4.6,2,1); g.fill(); g.restore();   // brim
     g.restore();
-    drawRacket(bx,by-6);
+    drawRacket(bx,by-4);
   }
   function drawRacket(bx,by){
     const lx=game.racketX, swing=game.swung;
     g.save();
-    if(swing && state!=='FIELD'){ g.translate(lx,CONTACT_Y); g.rotate(-0.5); } else { g.translate(bx+6,by-14); g.rotate(0.6); }
-    g.scale(1.22,1.22);
+    if(swing && state!=='FIELD'){ g.translate(lx,CONTACT_Y); g.rotate(-0.5); } else { g.translate(bx+16,by-31); g.rotate(-1.2); }   // rest: cocked up over the shoulder
+    g.scale(1.3,1.3);
     g.strokeStyle='#6a4a2a'; g.lineWidth=4; g.beginPath(); g.moveTo(0,0); g.lineTo(16,-2); g.stroke();       // handle
     g.strokeStyle=C.gold; g.lineWidth=3; g.beginPath(); g.ellipse(24,-3,8,11,0.3,0,7); g.stroke();           // head
     g.strokeStyle='rgba(240,240,250,0.7)'; g.lineWidth=1; g.beginPath(); g.moveTo(24,-13); g.lineTo(24,7); g.moveTo(16,-3); g.lineTo(32,-3); g.stroke();
