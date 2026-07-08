@@ -426,7 +426,18 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
   function allRunnersDone(){ return game.field.runners.every(r=> r.to===r.from || r.prog>=1); }
   function safePlay(){ resolvePlay(null,false); }
 
+  // A defensive play was made (catch / throw to a base / net smash). Don't kill the play
+  // instantly — keep it LIVE for 4 s (runners can still advance) before it's ruled dead.
+  const DEAD_PAUSE = 240;   // 4 s at the fixed 60 Hz timestep
+  function endPlay(fn){
+    const f=game.field;
+    if(!f || f.settling){ fn(); return; }        // guard against double-scheduling
+    f.settling=true; f.settleFn=fn; f.settleTimer=DEAD_PAUSE; f.phase='settle';
+  }
   function resolvePlay(outLabel, wasOut, safeLabel, offPts){
+    endPlay(()=>doResolvePlay(outLabel, wasOut, safeLabel, offPts));
+  }
+  function doResolvePlay(outLabel, wasOut, safeLabel, offPts){
     const f=game.field; let runs=0; const nb=[false,false,false];
     f.runners.forEach(r=>{ if(r.out) return; const base=r.jeop?r.from:r.to;   // jeopardy survivors get back to their base
       if(base===4) runs++; else if(base>=1&&base<=3) nb[base-1]=true; });
@@ -438,7 +449,7 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
   function flyout(){ const f=game.field; game.lastView='field'; recordOut(); beep(340,0.14);   // the batter is caught
     let jeop=false; f.runners.forEach(r=>{ if(r.isBatter){ r.out=true; } else if(!r.out && r.to>r.from && r.prog<1){ r.jeop=true; jeop=true; } });
     f.ball.team='def';
-    if(game.outs>=3 || !jeop){ newBatter(); banner({label:'OUT! CAUGHT', col:C.cream, pts:0}); return; }  // nobody to double up
+    if(game.outs>=3 || !jeop){ endPlay(()=>{ newBatter(); banner({label:'OUT! CAUGHT', col:C.cream, pts:0}); }); return; }  // nobody to double up
     // DOUBLE-PLAY chance: the catcher holds it; throw to a base a runner has left to tag them out
     f.phase='held'; f.cover=f.ctrl; const cfc=f.fielders[f.ctrl]; f.ball.gx=cfc.x; f.ball.gy=cfc.y-6; f.ball.x=f.ball.gx; f.ball.y=f.ball.gy;
   }
@@ -467,15 +478,17 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
       resolvePlay(null,false,'SMASH MISSED THE NET!', GATEMISS_PTS); return;
     }
     addDef(GATE_PTS); game.netFlash=16; game.baseFlash=8; beep(140,0.32,'sawtooth',0.08);
-    const runnersOffBase = f.runners.filter(offBase);
-    if(runnersOffBase.length){                                    // caught someone between the bags -> the side is retired
-      runnersOffBase.forEach(r=>{ r.out=true; });
-      game.outs=3;
-      banner({label:'NET SMASH! SIDE RETIRED · +'+GATE_PTS+' DEF', col:C.red, pts:GATE_PTS, gate:true});
-    } else {                                                      // everyone was on a base — just a defensive net goal
-      newBatter();
-      banner({label:'NET GOAL · +'+GATE_PTS+' DEF', col:C.gold, pts:GATE_PTS, gate:true});
-    }
+    endPlay(()=>{                                                  // 4 s later, rule it: anyone still off a base is caught
+      const runnersOffBase = f.runners.filter(offBase);
+      if(runnersOffBase.length){                                  // caught someone between the bags -> the side is retired
+        runnersOffBase.forEach(r=>{ r.out=true; });
+        game.outs=3;
+        banner({label:'NET SMASH! SIDE RETIRED · +'+GATE_PTS+' DEF', col:C.red, pts:GATE_PTS, gate:true});
+      } else {                                                    // everyone reached a base — just a defensive net goal
+        newBatter();
+        banner({label:'NET GOAL · +'+GATE_PTS+' DEF', col:C.gold, pts:GATE_PTS, gate:true});
+      }
+    });
   }
 
   // ── outs / innings (3 outs = half over; 9 innings; sides swap) ─────
@@ -599,6 +612,10 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
         const cf=f.fielders[f.cover], cs=4.8, cdx=tp.x-cf.x, cdy=tp.y-cf.y, cdd=Math.hypot(cdx,cdy);   // cover fielder hustles to the bag
         if(cdd>cs){ cf.x+=cdx/cdd*cs; cf.y+=cdy/cdd*cs; } else { cf.x=tp.x; cf.y=tp.y; }
         if(pr>=1) evalThrow();                          // arrives: caught only if someone's covering
+      }
+      else if(f.phase==='settle'){                      // play stays LIVE (runners still advancing) before it's ruled dead
+        if(f.settleTimer>0) f.settleTimer--;
+        else { const fn=f.settleFn; f.settleFn=null; f.settling=false; if(fn) fn(); }
       }
     }
     else if(state==='RESULT'){
@@ -1065,7 +1082,8 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
     }
     const ph=game.field&&game.field.phase, def=game.field&&game.field.ball.team==='def';
     const of = ph==='held' && game.field && OUTFIELDERS.includes(game.field.ctrl);
-    const hint = (ph==='smash') ? 'SMASH HOME…'
+    const hint = (ph==='settle') ? ('BALL IN PLAY — RUNNERS GOING… '+Math.ceil((game.field.settleTimer||0)/60)+'s')
+               : (ph==='smash') ? 'SMASH HOME…'
                : (ph==='held') ? (of?'GOT IT! TAP A BASE · TAP NET ×2 = SMASH':'GOT IT! TAP A BASE ◂3RD ▴2ND ▸1ST ▾HOME')
                : (ph==='throw') ? 'THROW…'
                : (ph==='loose') ? (def?'DEF BALL — close it out: field & throw':'OFF BALL — runners deflect · field to intercept')
