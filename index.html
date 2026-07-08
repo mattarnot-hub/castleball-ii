@@ -72,8 +72,8 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
 </div>
 
 <div class="help">
-  <div><h4>📱 BAT (touch)</h4><p><b>Tap</b> to throw the pitch · <b>drag</b> your thumb to aim the racket · <b>tap</b> again to swing.</p></div>
-  <div><h4>📱 FIELD (touch)</h4><p><b>Drag</b> to the ball to field it, then swipe to a base — <b>↑</b>2nd · <b>←</b>3rd · <b>→</b>1st · <b>↓</b>home. <b>Outfielders</b> can also swipe <b>↓↓ twice</b> to <b>smash the ball home</b> into the net (retires the side if a runner is off-base).</p></div>
+  <div><h4>📱 BAT (touch)</h4><p>Use the on-screen <b>◂ / ▸</b> buttons to slide the bat and the <b>HIT</b> button to swing (the first <b>HIT</b> also throws the pitch). You can still <b>drag</b> to aim if you prefer.</p></div>
+  <div><h4>📱 FIELD (touch)</h4><p><b>Drag</b> the nearest fielder onto the ball, then <b>tap the base</b> you want the throw to go to — <b>2nd · 3rd · 1st · home</b>. <b>Outfielders</b> can <b>double-tap the net</b> at the bottom to <b>smash the ball home</b> (retires the side if a runner is off-base).</p></div>
   <div><h4>⌨ KEYBOARD</h4><p><span class="key">SPACE</span> pitch / swing · <span class="key">◂</span><span class="key">▸</span> aim the bat. Field with the arrows; every defender throws <span class="key">◂</span>3rd <span class="key">▴</span>2nd <span class="key">▸</span>1st <span class="key">▾</span>home. Outfielders <b>double-tap</b> <span class="key">▾</span> to smash the ball home into the net.</p></div>
   <div><h4>RULES</h4><p>Balls · Strikes · Outs · 9 innings, Team A vs Team B. Ball outside the net = ball (4 = walk); into the net = strike (+50 defence).</p></div>
 </div>
@@ -264,9 +264,24 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
   //        (↑ 2nd · ← 3rd · → 1st · ↓ home).
   let fieldTouch=null;                               // live drag target for the controlled fielder
   const tch={down:false,x0:0,y0:0,t0:0,moved:false,launched:false};
+  // ── mobile: on-screen batting buttons (◂ slide · HIT · ▸ slide) + tap-a-base fielding ──
+  const TOUCH = (window.matchMedia && matchMedia('(pointer: coarse)').matches) || ('ontouchstart' in window) || navigator.maxTouchPoints>0 || /[?&]touch=1/.test(location.search);
+  let mobileLeft=false, mobileRight=false;           // ◂/▸ buttons held -> glide the racket in update()
+  const btnHold={};                                  // pointerId -> 'left'|'right'|'hit' (so move/up don't also aim/swing)
+  const BAT_BTN={ left:{x:8,y:400,w:98,h:46}, hit:{x:162,y:395,w:188,h:53}, right:{x:406,y:400,w:98,h:46} };
+  function hitBatBtn(p){ for(const k in BAT_BTN){ const b=BAT_BTN[k]; if(p.x>=b.x&&p.x<=b.x+b.w&&p.y>=b.y&&p.y<=b.y+b.h) return k; } return null; }
   function canvasPt(e){ const r=cv.getBoundingClientRect(); return { x:(e.clientX-r.left)*(W/r.width), y:(e.clientY-r.top)*(H/r.height) }; }
   cv.addEventListener('pointerdown',e=>{ e.preventDefault(); startMusic(); if(cv.setPointerCapture){ try{cv.setPointerCapture(e.pointerId);}catch(_){} }
-    const p=canvasPt(e); tch.down=true; tch.x0=p.x; tch.y0=p.y; tch.t0=performance.now(); tch.moved=false; tch.launched=false;
+    const p=canvasPt(e);
+    if(TOUCH && state==='PITCH'){                       // on-screen batting buttons intercept the touch
+      const b=hitBatBtn(p);
+      if(b){ btnHold[e.pointerId]=b;
+        if(b==='left') mobileLeft=true;
+        else if(b==='right') mobileRight=true;
+        else down('swing');                              // HIT: throws the first pitch, then swings
+        return; }
+    }
+    tch.down=true; tch.x0=p.x; tch.y0=p.y; tch.t0=performance.now(); tch.moved=false; tch.launched=false;
     if(state==='TITLE'||state==='OVER'){ startPlay(); return; }
     if(state==='RESULT'){ if(game.resultTimer<=0) afterResult(); return; }
     if(state==='PITCH'){
@@ -280,17 +295,25 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
     if(state==='PITCH' && game.pitch.released){ game.racketX=Math.max(RACKET_MIN,Math.min(RACKET_MAX,p.x)); }   // drag to aim
     else if(state==='FIELD'){ const ph=game.field&&game.field.phase; if(ph==='air'||ph==='loose') fieldTouch={x:p.x,y:p.y}; }
   });
-  cv.addEventListener('pointerup',e=>{ if(!tch.down) return; e.preventDefault(); tch.down=false; fieldTouch=null;
+  cv.addEventListener('pointerup',e=>{
+    if(btnHold[e.pointerId]){ const b=btnHold[e.pointerId]; delete btnHold[e.pointerId];   // release an on-screen button
+      if(b==='left') mobileLeft=false; else if(b==='right') mobileRight=false; return; }
+    if(!tch.down) return; e.preventDefault(); tch.down=false; fieldTouch=null;
     const p=canvasPt(e), dt=performance.now()-tch.t0, dx=p.x-tch.x0, dy=p.y-tch.y0, dist=Math.hypot(dx,dy);
     if(state==='PITCH' && game.pitch.released && !tch.launched && !tch.moved && dt<400){ doSwing(); }   // a clean tap = swing
-    else if(state==='FIELD' && game.field && game.field.phase==='held' && dist>22){
+    else if(state==='FIELD' && game.field && game.field.phase==='held'){
       const f=game.field, isOF=OUTFIELDERS.includes(f.ctrl);
-      const dir = Math.abs(dx)>Math.abs(dy) ? (dx>0?'right':'left') : (dy>0?'down':'up');
-      if(dir==='down' && isOF) outfieldDown();              // outfielder: ▾ swipe = home, ▾▾ = smash home
-      else down(dir);                                       // swipe to a base (◂3rd ▴2nd ▸1st ▾home)
+      if(dist<=22){                                          // TAP a base to throw there · ×2 on the net (home zone) = smash
+        if(p.y>388){ if(isOF) outfieldDown(); else throwTo(4); }
+        else { let best=0,bd=58; [[1,FB1],[2,FB2],[3,FB3]].forEach(a=>{ const d=Math.hypot(p.x-a[1].x,p.y-a[1].y); if(d<bd){bd=d;best=a[0];} });
+               if(best) throwTo(best); }
+      } else {                                               // swipe still works as a fallback
+        const dir = Math.abs(dx)>Math.abs(dy) ? (dx>0?'right':'left') : (dy>0?'down':'up');
+        if(dir==='down' && isOF) outfieldDown(); else down(dir);
+      }
     }
   });
-  cv.addEventListener('pointercancel',()=>{ tch.down=false; fieldTouch=null; });
+  cv.addEventListener('pointercancel',e=>{ if(btnHold[e.pointerId]){ const b=btnHold[e.pointerId]; delete btnHold[e.pointerId]; if(b==='left') mobileLeft=false; else if(b==='right') mobileRight=false; } tch.down=false; fieldTouch=null; });
 
   // ── batting resolution ────────────────────────────────────────────
   function doSwing(){
@@ -476,9 +499,9 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
     if(game.ptimer>0) game.ptimer--;
 
     if(state==='PITCH'){
-      const rs=5.5;     // glide the racket continuously across the box while keys held
-      if(keys['arrowleft']||keys['a']) game.racketX=Math.max(RACKET_MIN, game.racketX-rs);
-      if(keys['arrowright']||keys['d']) game.racketX=Math.min(RACKET_MAX, game.racketX+rs);
+      const rs=5.5;     // glide the racket continuously across the box while keys / ◂▸ buttons held
+      if(keys['arrowleft']||keys['a']||mobileLeft) game.racketX=Math.max(RACKET_MIN, game.racketX-rs);
+      if(keys['arrowright']||keys['d']||mobileRight) game.racketX=Math.min(RACKET_MAX, game.racketX+rs);
       const p=game.pitch;
       if(p.released && game.ptimer<=0) p.t++;     // ball only flies once released
       if(p.released && !game.swung && p.t/p.dur>=1.12){ // pitch done, batter took it
@@ -705,6 +728,19 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
     drawLinescore();   // team line-score across the top
     drawBSO();         // balls / strikes / outs, bottom-left
     drawBaseMini();
+    drawBatControls(); // mobile: ◂ / HIT / ▸ thumb buttons (touch devices only)
+  }
+  function drawBatControls(){
+    if(!TOUCH || state!=='PITCH') return;
+    g.textAlign='center'; g.textBaseline='middle';
+    const arrow=(b,gl)=>{ g.fillStyle='rgba(12,16,22,0.5)'; g.fillRect(b.x,b.y,b.w,b.h);
+      g.strokeStyle='rgba(201,168,76,0.8)'; g.lineWidth=2; g.strokeRect(b.x,b.y,b.w,b.h);
+      g.fillStyle=C.gold; g.font='700 30px Arial'; g.fillText(gl,b.x+b.w/2,b.y+b.h/2+1); };
+    arrow(BAT_BTN.left,'◂'); arrow(BAT_BTN.right,'▸');
+    const h=BAT_BTN.hit, ready=game.pitch&&game.pitch.released;   // HIT lights up once the ball is on its way
+    g.fillStyle=ready?'rgba(201,168,76,0.30)':'rgba(12,16,22,0.55)'; g.fillRect(h.x,h.y,h.w,h.h);
+    g.strokeStyle='rgba(201,168,76,0.95)'; g.lineWidth=2.5; g.strokeRect(h.x,h.y,h.w,h.h);
+    g.fillStyle=C.gold; g.font='800 20px Arial'; g.fillText(ready?'HIT':'PITCH ▸',h.x+h.w/2,h.y+h.h/2+1);
   }
 
   function drawBatInfield(){
@@ -1022,18 +1058,18 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
         const tag=(p,s)=>{ g.fillStyle='rgba(8,9,14,0.7)'; g.beginPath(); g.arc(p.x,p.y-18,9,0,7); g.fill(); ptxt(s,p.x,p.y-18,C.gold,9,'center'); };
         tag(FB3,'◂'); tag(FB2,'▴'); tag(FB1,'▸'); tag(FHOME,'▾');
         if(Math.floor(game.t/16)%2===0){
-          if(OUTFIELDERS.includes(f.ctrl)) ptxt('◂3RD ▴2ND ▸1ST ▾HOME · ▾▾ SMASH HOME',256,52,C.gold,7,'center');
-          else ptxt('SWIPE/KEY ◂3RD ▴2ND ▸1ST ▾HOME',256,52,C.gold,8,'center');
+          if(OUTFIELDERS.includes(f.ctrl)) ptxt('TAP A BASE ◂3RD ▴2ND ▸1ST ▾HOME · TAP NET ×2 = SMASH',256,52,C.gold,7,'center');
+          else ptxt('TAP A BASE ◂3RD ▴2ND ▸1ST ▾HOME',256,52,C.gold,8,'center');
         }
       }
     }
     const ph=game.field&&game.field.phase, def=game.field&&game.field.ball.team==='def';
     const of = ph==='held' && game.field && OUTFIELDERS.includes(game.field.ctrl);
     const hint = (ph==='smash') ? 'SMASH HOME…'
-               : (ph==='held') ? (of?'GOT IT! ◂3RD ▴2ND ▸1ST ▾HOME · ▾▾ SMASH HOME':'GOT IT! ◂3RD ▴2ND ▸1ST ▾HOME')
+               : (ph==='held') ? (of?'GOT IT! TAP A BASE · TAP NET ×2 = SMASH':'GOT IT! TAP A BASE ◂3RD ▴2ND ▸1ST ▾HOME')
                : (ph==='throw') ? 'THROW…'
                : (ph==='loose') ? (def?'DEF BALL — close it out: field & throw':'OFF BALL — runners deflect · field to intercept')
-               : 'DRAG / ◂▸▴▾ TO THE BALL · GRAB IT';
+               : 'DRAG or ◂▸▴▾ TO THE BALL · GRAB IT';
     panel(86,6,340,38); txt(hint,256,25,def?C.red:C.cream, ph==='loose'?9:10,'center');   // centred above the field
   }
 
