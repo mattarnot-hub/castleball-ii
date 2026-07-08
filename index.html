@@ -268,7 +268,7 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
   const TOUCH = (window.matchMedia && matchMedia('(pointer: coarse)').matches) || ('ontouchstart' in window) || navigator.maxTouchPoints>0 || /[?&]touch=1/.test(location.search);
   let mobileLeft=false, mobileRight=false;           // ◂/▸ buttons held -> glide the racket in update()
   const btnHold={};                                  // pointerId -> 'left'|'right'|'hit' (so move/up don't also aim/swing)
-  const BAT_BTN={ left:{x:8,y:400,w:98,h:46}, hit:{x:162,y:395,w:188,h:53}, right:{x:406,y:400,w:98,h:46} };
+  const BAT_BTN={ left:{x:104,y:400,w:88,h:46}, hit:{x:200,y:396,w:112,h:52}, right:{x:320,y:400,w:88,h:46} };
   function hitBatBtn(p){ for(const k in BAT_BTN){ const b=BAT_BTN[k]; if(p.x>=b.x&&p.x<=b.x+b.w&&p.y>=b.y&&p.y<=b.y+b.h) return k; } return null; }
   function canvasPt(e){ const r=cv.getBoundingClientRect(); return { x:(e.clientX-r.left)*(W/r.width), y:(e.clientY-r.top)*(H/r.height) }; }
   cv.addEventListener('pointerdown',e=>{ e.preventDefault(); startMusic(); if(cv.setPointerCapture){ try{cv.setPointerCapture(e.pointerId);}catch(_){} }
