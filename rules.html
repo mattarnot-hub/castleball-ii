@@ -561,10 +561,24 @@ input[type=range]::-webkit-slider-thumb {
       <div class="sidebar-section-title">Scoring <span class="tag">Adjustable</span><button class="section-toggle open" onclick="event.stopPropagation(); sectionToggle(this)" aria-label="Toggle section">▾</button></div>
       <div class="slider-row">
         <div class="slider-label-row">
-          <span class="slider-name">Home Run</span>
-          <span class="slider-val" id="val-homerun">500</span>
+          <span class="slider-name">Home Run — Left Field</span>
+          <span class="slider-val" id="val-hrLeft">1,000</span>
         </div>
-        <input type="range" min="50" max="1000" step="25" value="500" oninput="setSlider('homerun',this.value)" style="--pct:47%">
+        <input type="range" min="100" max="3000" step="50" value="1000" oninput="setSlider('hrLeft',this.value)" style="--pct:31%">
+      </div>
+      <div class="slider-row">
+        <div class="slider-label-row">
+          <span class="slider-name">Home Run — Center Field</span>
+          <span class="slider-val" id="val-hrCenter">1,500</span>
+        </div>
+        <input type="range" min="100" max="3000" step="50" value="1500" oninput="setSlider('hrCenter',this.value)" style="--pct:48%">
+      </div>
+      <div class="slider-row">
+        <div class="slider-label-row">
+          <span class="slider-name">Home Run — Right Field</span>
+          <span class="slider-val" id="val-hrRight">1,000</span>
+        </div>
+        <input type="range" min="100" max="3000" step="50" value="1000" oninput="setSlider('hrRight',this.value)" style="--pct:31%">
       </div>
       <div class="slider-row">
         <div class="slider-label-row">
@@ -673,9 +687,9 @@ input[type=range]::-webkit-slider-thumb {
       <div class="tab-content active" id="tab-scoring">
         <div class="spec-grid">
           <div class="spec-card">
-            <div class="spec-card-title"><span class="icon">🏠</span> Home Run</div>
-            <div class="spec-value" id="sc-homerun">100</div>
-            <div class="spec-sub">Ball struck fair into the stands</div>
+            <div class="spec-card-title"><span class="icon">🏠</span> Home Run (Center)</div>
+            <div class="spec-value" id="sc-homerun">1,500</div>
+            <div class="spec-sub" id="sc-homerun-sub">L 1,000 · C 1,500 · R 1,000</div>
           </div>
           <div class="spec-card">
             <div class="spec-card-title"><span class="icon">🏃</span> Score at Home</div>
@@ -700,7 +714,7 @@ input[type=range]::-webkit-slider-thumb {
             <tr><td>2nd Base</td><td class="muted">Makes stealing more attractive</td><td class="pts" id="sc-second">40</td></tr>
             <tr><td>3rd Base</td><td class="muted">High value — pressure on defense</td><td class="pts" id="sc-third">80</td></tr>
             <tr class="highlight"><td>Score at Home</td><td class="muted">Complete circuit</td><td class="pts" id="sc-home2">1,000</td></tr>
-            <tr><td>Home Run (stands)</td><td class="muted">Fair territory only</td><td class="pts" id="sc-homerun2">100</td></tr>
+            <tr><td>Home Run — by field</td><td class="muted">Left / Center / Right thirds</td><td class="pts" id="sc-homerun2">1,500</td></tr>
             <tr><td>No Man's Land hit</td><td class="muted">Between infield & outfield</td><td class="pts" id="sc-nomans2">50</td></tr>
             <tr><td>Gate Goal (defense)</td><td class="muted">Ball crosses Castle Gate line</td><td class="pts" id="sc-gate2">50</td></tr>
           </tbody>
@@ -745,7 +759,7 @@ const state = {
     mixedLeague: true
   },
   pills: { ball: 'dodgeball', net: 'soccer' },
-  sliders: { homerun:500, first:50, second:75, third:100, home:1000, nomans:50, gate:100, gatemiss:100 }
+  sliders: { hrLeft:1000, hrCenter:1500, hrRight:1000, first:50, second:75, third:100, home:1000, nomans:50, gate:100, gatemiss:100 }
 };
 
 // ── PILL LABELS ─────────────────────────────────────────────────────────────
@@ -802,7 +816,7 @@ function resetAll() {
   state.pills.ball = 'dodgeball'; state.pills.net = 'soccer';
   document.querySelectorAll('#ball-pills .pill').forEach(p => p.classList.toggle('active', p.dataset.val === 'dodgeball'));
   document.querySelectorAll('#net-pills .pill').forEach(p => p.classList.toggle('active', p.dataset.val === 'soccer'));
-  const defaults = { homerun:500,first:50,second:75,third:100,home:1000,nomans:50,gate:100,gatemiss:100 };
+  const defaults = { hrLeft:1000,hrCenter:1500,hrRight:1000,first:50,second:75,third:100,home:1000,nomans:50,gate:100,gatemiss:100 };
   Object.entries(defaults).forEach(([k,v]) => {
     state.sliders[k] = v;
     document.getElementById('val-'+k).textContent = v.toLocaleString();
@@ -822,7 +836,7 @@ function resetAll() {
 // ── VARIANT HASH ─────────────────────────────────────────────────────────────
 function buildHash() {
   const t = state.toggles, p = state.pills, s = state.sliders;
-  const str = Object.values(t).map(v=>v?1:0).join('') + p.ball[0] + p.net[0] + s.homerun + s.home;
+  const str = Object.values(t).map(v=>v?1:0).join('') + p.ball[0] + p.net[0] + s.hrCenter + s.home;
   let h = 0; for(let c of str) h = (h*31 + c.charCodeAt(0)) & 0xFFFF;
   return h.toString(16).toUpperCase().padStart(4,'0');
 }
@@ -1097,7 +1111,7 @@ function renderField() {
     <!-- ── OUTFIELD WALL LABEL ── -->
     <text x="${cx}" y="${wCY + 18}" text-anchor="middle"
       fill="#C9A84C" font-size="9" font-family="Space Mono" opacity="0.55">
-      OUTFIELD WALL — HR = ${state.sliders.homerun} pts
+      OUTFIELD WALL — HR: L ${state.sliders.hrLeft} · C ${state.sliders.hrCenter} · R ${state.sliders.hrRight} pts
     </text>
 
     <!-- ── NO MAN'S LAND ZONE ── -->
@@ -1185,7 +1199,7 @@ function renderField() {
 // ── SCORE DISPLAY ────────────────────────────────────────────────────────────
 function renderScores() {
   const s = state.sliders;
-  const ids = ['homerun','home','gate','nomans','first','second','third'];
+  const ids = ['home','gate','nomans','first','second','third'];
   ids.forEach(k => {
     const v = s[k].toLocaleString();
     ['sc-'+k, 'sc-'+k+'2'].forEach(id => {
@@ -1193,6 +1207,11 @@ function renderScores() {
       if(el) el.textContent = v;
     });
   });
+  // home-run zones: headline = center; the sub line shows all three
+  const hrTxt = s.hrCenter.toLocaleString();
+  ['sc-homerun','sc-homerun2'].forEach(id => { const el = document.getElementById(id); if(el) el.textContent = hrTxt; });
+  const hrSub = document.getElementById('sc-homerun-sub');
+  if(hrSub) hrSub.textContent = `L ${s.hrLeft.toLocaleString()} · C ${s.hrCenter.toLocaleString()} · R ${s.hrRight.toLocaleString()}`;
 }
 
 // ── ACTIVE RULES ─────────────────────────────────────────────────────────────
@@ -1288,7 +1307,7 @@ function buildExport() {
   Offense carry rackets on base : ${on('offRackets')}
 
 § SCORING
-  Home Run (stands)  : ${s.homerun} pts
+  Home Run  : L ${s.hrLeft} / C ${s.hrCenter} / R ${s.hrRight} pts
   Score at Home      : ${s.home} pts
   1st Base           : ${s.first} pts
   2nd Base           : ${s.second} pts

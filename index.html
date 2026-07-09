@@ -106,7 +106,7 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
   };
 
   // ── scoring (Castle Ball points — driven by the Rules Configurator via localStorage) ──
-  const PTS_DEFAULT = { homerun:500, first:50, second:75, third:100, home:1000, nomans:50, gate:100, gatemiss:100 };
+  const PTS_DEFAULT = { homerun:500, hrLeft:1000, hrCenter:1500, hrRight:1000, first:50, second:75, third:100, home:1000, nomans:50, gate:100, gatemiss:100 };
   const PTS = Object.assign({}, PTS_DEFAULT);
   try { const saved = JSON.parse(localStorage.getItem('castleball-points-v2')||'null');
     if(saved) Object.keys(PTS_DEFAULT).forEach(k=>{ if(typeof saved[k]==='number') PTS[k]=saved[k]; }); } catch(e){}
@@ -475,8 +475,16 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
     bumpClock();
     if(game.outs>=3) finishPlay();   // 3rd out on the grab ends it immediately
   }
-  function homeRun(){ let runs=1; game.bases.forEach(o=>{ if(o) runs++; }); game.bases=[false,false,false];
-    addOff(HITS.HR.pts,0); score(runs); newBatter(); game.baseFlash=18; banner({label:'HOME RUN', col:C.gold, pts:HITS.HR.pts}); }
+  function homeRun(){ const b=game.field.ball;
+    // which third of the outfield did it clear? (fair fan split L / C / R) — center pays the most
+    let a=Math.atan2(b.ty-FHOME.y, b.tx-FHOME.x); if(a<0) a+=Math.PI*2;
+    const third=(FA_R-FA_L)/3;
+    let zone, pts;
+    if(a < FA_L+third){ zone='LEFT FIELD'; pts=PTS.hrLeft; }
+    else if(a < FA_L+2*third){ zone='CENTER FIELD'; pts=PTS.hrCenter; }
+    else { zone='RIGHT FIELD'; pts=PTS.hrRight; }
+    let runs=1; game.bases.forEach(o=>{ if(o) runs++; }); game.bases=[false,false,false];
+    addOff(pts,0); score(runs); newBatter(); game.baseFlash=18; banner({label:'HOME RUN · '+zone, col:C.gold, pts:pts}); }
 
   function score(n){ addOff(n*RUN_PTS, n); beep(1000,0.2,'square',0.08); crowdCheer(true); }   // n runs cross the plate -> big cheer
 
