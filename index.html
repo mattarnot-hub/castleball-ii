@@ -385,7 +385,7 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
 
   function grab(fc){ const f=game.field; const wasOff=f.ball.team==='off';
     f.ball.team='def'; if(wasOff) f.interceptT=22;      // defence intercepts -> the ball is now theirs
-    f.phase='held'; f.ball.vx=f.ball.vy=f.ball.vh=f.ball.h=0; beep(300,0.06,'square',0.06);
+    f.phase='held'; f.ball.vx=f.ball.vy=f.ball.vh=f.ball.h=0; beep(300,0.06,'square',0.06); bumpClock();
   }
   // screen position of a runner (and the nearest defender to a point)
   function runnerPos(r){ const a=basePos(r.from), bp=basePos(r.to); return {x:a.x+(bp.x-a.x)*r.prog, y:a.y+(bp.y-a.y)*r.prog}; }
@@ -398,8 +398,7 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
     if(Math.hypot(fc.x-tp.x,fc.y-tp.y) < bestc) cover=f.ctrl;    // thrower is closest -> they take the bag themselves
     f.cover=cover;
     f.throwBase=base; f.throw={sx:fc.x, sy:fc.y, x:fc.x, y:fc.y, t:0, dur:Math.max(14, Math.round(d/sp))};
-    f.passes=(f.passes||0)+1;                                    // count passes — the defence gets two before the play dies
-    f.phase='throw'; beep(520,0.05,'square',0.06);
+    f.phase='throw'; beep(520,0.05,'square',0.06); bumpClock();   // a throw keeps the play alive
   }
   // a runner is still in jeopardy (off a base) and can be put out
   function offBase(r){ return !r.out && (r.jeop || (r.to>r.from && r.prog<1)); }
@@ -411,28 +410,33 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
       else if(!r.jeop && r.to===base && r.to>r.from && r.prog<1) outIdx=i;   // beat the forced runner to the bag
     }); }
     if(outIdx>=0){ f.runners[outIdx].out=true; recordOut(); beep(300,0.14);
-      // the play is NOT dead after one out — keep going for a double / triple play
-      if(game.outs<3 && f.runners.some(offBase)){ f.ctrl=f.cover; f.phase='held'; f.ball.team='def'; return; }
-      const n=game.outs-f.startOuts; resolvePlay(n>=3?'TRIPLE PLAY!':n>=2?'DOUBLE PLAY!':'OUT AT '+baseName(base), true); return;
+      if(game.outs>=3){ finishPlay(); return; }                  // side retired — nothing more to do
     }
-    // no out on this throw — the defence may make a SECOND pass before the play is dead
-    if(f.passes<2 && game.outs<3){
-      f.ctrl = covered ? f.cover : f.fielders.indexOf(nearestDefender(tp.x,tp.y));   // the receiver (or nearest, if the bag wasn't covered) takes it
-      const nf=f.fielders[f.ctrl]; f.ball.gx=nf.x; f.ball.gy=nf.y-6; f.ball.x=f.ball.gx; f.ball.y=f.ball.gy;
-      f.phase='held'; f.ball.team='def'; return;
-    }
-    resolvePlay(null,false, covered?null:'NO ONE COVERING — SAFE!');
+    // the ball settles with the receiver (or nearest fielder if the bag wasn't covered) and the
+    // play stays LIVE — keep throwing / passing to catch more runners until the clock runs out
+    f.ctrl = covered ? f.cover : f.fielders.indexOf(nearestDefender(tp.x,tp.y));
+    const nf=f.fielders[f.ctrl]; f.ball.gx=nf.x; f.ball.gy=nf.y-6; f.ball.x=f.ball.gx; f.ball.y=f.ball.gy;
+    f.phase='held'; f.ball.team='def';
   }
   function allRunnersDone(){ return game.field.runners.every(r=> r.to===r.from || r.prog>=1); }
-  function safePlay(){ resolvePlay(null,false); }
+  function safePlay(){ doResolvePlay(null,false); }              // a truly dead / uncaught ball — rule it immediately
 
   // A defensive play was made (catch / throw to a base / net smash). Don't kill the play
   // instantly — keep it LIVE for 4 s (runners can still advance) before it's ruled dead.
   const DEAD_PAUSE = 240;   // 4 s at the fixed 60 Hz timestep
-  function endPlay(fn){
+  function endPlay(fn){     // used by the NET SMASH only — the ball's in the net, so it's a passive wind-down
     const f=game.field;
     if(!f || f.settling){ fn(); return; }        // guard against double-scheduling
-    f.settling=true; f.settleFn=fn; f.settleTimer=DEAD_PAUSE; f.phase='settle';
+    f.clockOn=false; f.settling=true; f.settleFn=fn; f.settleTimer=DEAD_PAUSE; f.phase='settle';
+  }
+  // Fielding "play clock": once the defence has the ball it stays LIVE — they can run around,
+  // throw, and pass between basemen freely. Each action refreshes the clock; the play is only
+  // ruled dead after DEAD_PAUSE (4 s) with no new defensive action (or when the side is retired).
+  function bumpClock(){ const f=game.field; if(f){ f.clockOn=true; f.clock=DEAD_PAUSE; } }
+  function finishPlay(){ const f=game.field; f.clockOn=false;   // clock ran out — rule the play now
+    const n=game.outs-f.startOuts;
+    if(n>0) doResolvePlay(n>=3?'TRIPLE PLAY!':n>=2?'DOUBLE PLAY!':'OUT!', true);
+    else doResolvePlay(null,false);
   }
   function resolvePlay(outLabel, wasOut, safeLabel, offPts){
     endPlay(()=>doResolvePlay(outLabel, wasOut, safeLabel, offPts));
@@ -449,9 +453,10 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
   function flyout(){ const f=game.field; game.lastView='field'; recordOut(); beep(340,0.14);   // the batter is caught
     let jeop=false; f.runners.forEach(r=>{ if(r.isBatter){ r.out=true; } else if(!r.out && r.to>r.from && r.prog<1){ r.jeop=true; jeop=true; } });
     f.ball.team='def';
-    if(game.outs>=3 || !jeop){ endPlay(()=>{ newBatter(); banner({label:'OUT! CAUGHT', col:C.cream, pts:0}); }); return; }  // nobody to double up
-    // DOUBLE-PLAY chance: the catcher holds it; throw to a base a runner has left to tag them out
+    // the catcher HOLDS it and the play stays live — throw to a base a runner has left to double them up
     f.phase='held'; f.cover=f.ctrl; const cfc=f.fielders[f.ctrl]; f.ball.gx=cfc.x; f.ball.gy=cfc.y-6; f.ball.x=f.ball.gx; f.ball.y=f.ball.gy;
+    bumpClock();
+    if(game.outs>=3) finishPlay();   // 3rd out on the grab ends it immediately
   }
   function homeRun(){ let runs=1; game.bases.forEach(o=>{ if(o) runs++; }); game.bases=[false,false,false];
     addOff(HITS.HR.pts,0); score(runs); newBatter(); game.baseFlash=18; banner({label:'HOME RUN', col:C.gold, pts:HITS.HR.pts}); }
@@ -524,6 +529,7 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
     else if(state==='FIELD'){
       const f=game.field, b=f.ball; f.t++;
       if(f.interceptT>0) f.interceptT--; if(f.deflectFx && f.deflectFx.t>0) f.deflectFx.t--;
+      if(f.clockOn && f.clock>0) f.clock--;   // the defence's live play clock (refreshed by each throw/grab)
       // baserunners: take a lead, commit once it lands, or hustle BACK to tag up if it's caught
       f.runners.forEach(r=>{ if(r.cd>0) r.cd--;
         if(r.jeop){ if(r.prog>0){ r.prog=Math.max(0, r.prog-1/f.RUN); if(r.prog<=0){ r.jeop=false; r.to=r.from; } } }  // run back to the bag
@@ -594,11 +600,7 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
       else if(f.phase==='held'){
         b.gx=fc.x; b.gy=fc.y-6; b.x=b.gx; b.y=b.gy;            // ball in the glove
         if(f.pendHome!==undefined && game.t-f.pendHome>=30){ f.pendHome=undefined; throwTo(4); }   // ▾ once, no 2nd tap -> throw home
-        else if(!f.runners.some(offBase)){                     // everyone tagged up / reached safely: play is over
-          const n=game.outs-f.startOuts;
-          if(n>0) resolvePlay(n>=3?'TRIPLE PLAY!':n>=2?'DOUBLE PLAY!':'OUT! CAUGHT', true);
-          else safePlay();
-        } else if(f.t > f.land + 1400){ safePlay(); }          // long safety fallback (longer, to leave room to smash)
+        else if(f.clockOn && f.clock<=0){ finishPlay(); }      // 4 s with no new throw/pass -> the play is dead
       }
       else if(f.phase==='smash'){
         const s=f.smash; s.t++; const pr=Math.min(s.t/s.dur,1);
@@ -1082,10 +1084,11 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
     }
     const ph=game.field&&game.field.phase, def=game.field&&game.field.ball.team==='def';
     const of = ph==='held' && game.field && OUTFIELDERS.includes(game.field.ctrl);
+    const clk = (game.field && game.field.clockOn && game.field.clock>0) ? '  ·  '+Math.ceil(game.field.clock/60)+'s LEFT' : '';
     const hint = (ph==='settle') ? ('BALL IN PLAY — RUNNERS GOING… '+Math.ceil((game.field.settleTimer||0)/60)+'s')
                : (ph==='smash') ? 'SMASH HOME…'
-               : (ph==='held') ? (of?'GOT IT! TAP A BASE · TAP NET ×2 = SMASH':'GOT IT! TAP A BASE ◂3RD ▴2ND ▸1ST ▾HOME')
-               : (ph==='throw') ? 'THROW…'
+               : (ph==='held') ? ((of?'GOT IT! TAP A BASE · TAP NET ×2 = SMASH':'GOT IT! KEEP THROWING ◂3RD ▴2ND ▸1ST ▾HOME')+clk)
+               : (ph==='throw') ? ('THROW…'+clk)
                : (ph==='loose') ? (def?'DEF BALL — close it out: field & throw':'OFF BALL — runners deflect · field to intercept')
                : 'DRAG or ◂▸▴▾ TO THE BALL · GRAB IT';
     panel(86,6,340,38); txt(hint,256,25,def?C.red:C.cream, ph==='loose'?9:10,'center');   // centred above the field
