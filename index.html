@@ -128,6 +128,22 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
     const o=c.createOscillator(),a=c.createGain(); o.type=t; o.frequency.value=f; o.connect(a); a.connect(c.destination);
     a.gain.setValueAtTime(v,c.currentTime); a.gain.exponentialRampToValueAtTime(0.0001,c.currentTime+d); o.start(); o.stop(c.currentTime+d);}catch(e){} }
   function chord(fs,d){ fs.forEach((f,i)=>setTimeout(()=>beep(f,d),i*60)); }
+  // crowd cheer — a filtered white-noise swell (small = ball put in play, big = run scored / home run)
+  function crowdCheer(big){ if(!sfxOn) return; try{ const c=ac(); if(!c) return; const t=c.currentTime;
+    const dur=big?1.7:0.65, vol=big?0.22:0.11;
+    const n=Math.floor(c.sampleRate*dur), buf=c.createBuffer(1,n,c.sampleRate), d=buf.getChannelData(0);
+    for(let i=0;i<n;i++) d[i]=Math.random()*2-1;                     // white noise = the wash of the crowd
+    const src=c.createBufferSource(); src.buffer=buf;
+    const bp=c.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value=big?1500:1100; bp.Q.value=0.6;
+    const lp=c.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=3600;
+    const g=c.createGain();
+    g.gain.setValueAtTime(0.0001,t);
+    g.gain.linearRampToValueAtTime(vol, t+dur*(big?0.28:0.16));       // roar swells up
+    g.gain.linearRampToValueAtTime(0.0001, t+dur);                    // then settles
+    src.connect(bp); bp.connect(lp); lp.connect(g); g.connect(c.destination);
+    src.start(t); src.stop(t+dur);
+    if(big){ beep(1900,0.45,'square',0.028); setTimeout(()=>beep(2400,0.4,'square',0.022),130); }   // a couple of whistles over the top
+  }catch(e){} }
 
   // ── background music — MELODY ONLY, the dictated note sequence (Take Me Out to the Ball Game; public domain) ──
   const N={C4:261.63,D4:293.66,E4:329.63,F4:349.23,Fs4:369.99,G4:392,Gs4:415.30,A4:440,B4:493.88,C5:523.25,D5:587.33};
@@ -323,6 +339,7 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
     // hit anything in the box you line the racket up with, with decent timing
     if(timing<=0.26 && offX<=34){
       const dir=Math.max(-1,Math.min(1,(p.tx-BOX_C)/BOX_HW));   // where in the box -> pull/centre/oppo
+      crowdCheer(false);                                        // crack of the bat -> the crowd stirs
       startField(timing, offX/34, dir);
     } else { addStrike('swing'); }                              // whiff
   }
@@ -423,7 +440,7 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
 
   // A defensive play was made (catch / throw to a base / net smash). Don't kill the play
   // instantly — keep it LIVE for 4 s (runners can still advance) before it's ruled dead.
-  const DEAD_PAUSE = 240;   // 4 s at the fixed 60 Hz timestep
+  const DEAD_PAUSE = 120;   // 2 s at the fixed 60 Hz timestep (play-alive window / smash wind-down)
   function endPlay(fn){     // used by the NET SMASH only — the ball's in the net, so it's a passive wind-down
     const f=game.field;
     if(!f || f.settling){ fn(); return; }        // guard against double-scheduling
@@ -431,7 +448,7 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
   }
   // Fielding "play clock": once the defence has the ball it stays LIVE — they can run around,
   // throw, and pass between basemen freely. Each action refreshes the clock; the play is only
-  // ruled dead after DEAD_PAUSE (4 s) with no new defensive action (or when the side is retired).
+  // ruled dead after DEAD_PAUSE (2 s) with no new defensive action (or when the side is retired).
   function bumpClock(){ const f=game.field; if(f){ f.clockOn=true; f.clock=DEAD_PAUSE; } }
   function finishPlay(){ const f=game.field; f.clockOn=false;   // clock ran out — rule the play now
     const n=game.outs-f.startOuts;
@@ -461,7 +478,7 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
   function homeRun(){ let runs=1; game.bases.forEach(o=>{ if(o) runs++; }); game.bases=[false,false,false];
     addOff(HITS.HR.pts,0); score(runs); newBatter(); game.baseFlash=18; banner({label:'HOME RUN', col:C.gold, pts:HITS.HR.pts}); }
 
-  function score(n){ addOff(n*RUN_PTS, n); beep(1000,0.2,'square',0.08); }   // n runs cross the plate
+  function score(n){ addOff(n*RUN_PTS, n); beep(1000,0.2,'square',0.08); crowdCheer(true); }   // n runs cross the plate -> big cheer
 
   // ── net smash — an OUTFIELDER drives the ball into the Goalie net ─────
   function outfieldDown(){ const f=game.field;   // ▾ once = throw home (fires after a short window) · ▾▾ = smash the net
@@ -498,7 +515,7 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
 
   // ── outs / innings (3 outs = half over; 9 innings; sides swap) ─────
   function recordOut(){ game.outs++; }
-  function banner(res){ if(res) game.result=res; state='RESULT'; game.resultTimer=66; }
+  function banner(res){ if(res) game.result=res; state='RESULT'; game.resultTimer=60; }   // ~1 s hold before you continue
   function afterResult(){
     if(game.outs>=3){
       game.outs=0; game.bases=[false,false,false]; newBatter();  // fresh count for the new half
