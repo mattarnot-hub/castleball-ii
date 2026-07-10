@@ -130,7 +130,7 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
   function chord(fs,d){ fs.forEach((f,i)=>setTimeout(()=>beep(f,d),i*60)); }
   // crowd cheer — a filtered white-noise swell (small = ball put in play, big = run scored / home run)
   function crowdCheer(big){ if(!sfxOn) return; try{ const c=ac(); if(!c) return; const t=c.currentTime;
-    const dur=big?1.7:0.65, vol=big?0.22:0.11;
+    const dur=big?3.0:2.2, vol=big?0.22:0.12;
     const n=Math.floor(c.sampleRate*dur), buf=c.createBuffer(1,n,c.sampleRate), d=buf.getChannelData(0);
     for(let i=0;i<n;i++) d[i]=Math.random()*2-1;                     // white noise = the wash of the crowd
     const src=c.createBufferSource(); src.buffer=buf;
@@ -138,10 +138,11 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
     const lp=c.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=3600;
     const g=c.createGain();
     g.gain.setValueAtTime(0.0001,t);
-    g.gain.linearRampToValueAtTime(vol, t+dur*(big?0.28:0.16));       // roar swells up
-    g.gain.linearRampToValueAtTime(0.0001, t+dur);                    // then settles
+    g.gain.linearRampToValueAtTime(vol, t+dur*0.12);                 // roar swells up fast
+    g.gain.setValueAtTime(vol, t+dur*0.55);                          // ...and SUSTAINS at full for a beat
+    g.gain.exponentialRampToValueAtTime(0.0001, t+dur);             // then a long, natural fade
     src.connect(bp); bp.connect(lp); lp.connect(g); g.connect(c.destination);
-    src.start(t); src.stop(t+dur);
+    src.start(t); src.stop(t+dur+0.05);
     if(big){ beep(1900,0.45,'square',0.028); setTimeout(()=>beep(2400,0.4,'square',0.022),130); }   // a couple of whistles over the top
   }catch(e){} }
 
@@ -427,7 +428,7 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
       else if(!r.jeop && r.to===base && r.to>r.from && r.prog<1) outIdx=i;   // beat the forced runner to the bag
     }); }
     if(outIdx>=0){ f.runners[outIdx].out=true; recordOut(); beep(300,0.14);
-      if(game.outs>=3){ finishPlay(); return; }                  // side retired — nothing more to do
+      if(playDoneAfterOut()){ finishPlay(); return; }            // side retired · double play · nobody left to get
     }
     // the ball settles with the receiver (or nearest fielder if the bag wasn't covered) and the
     // play stays LIVE — keep throwing / passing to catch more runners until the clock runs out
@@ -455,6 +456,11 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
     if(n>0) doResolvePlay(n>=3?'TRIPLE PLAY!':n>=2?'DOUBLE PLAY!':'OUT!', true);
     else doResolvePlay(null,false);
   }
+  // after an out is recorded, decide whether the play is over: the side is retired, TWO outs were
+  // made this play (a double play), or there's simply no runner left in jeopardy to throw out.
+  function playDoneAfterOut(){ const f=game.field;
+    return game.outs>=3 || (game.outs-f.startOuts)>=2 || !f.runners.some(offBase);
+  }
   function resolvePlay(outLabel, wasOut, safeLabel, offPts){
     endPlay(()=>doResolvePlay(outLabel, wasOut, safeLabel, offPts));
   }
@@ -473,7 +479,7 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
     // the catcher HOLDS it and the play stays live — throw to a base a runner has left to double them up
     f.phase='held'; f.cover=f.ctrl; const cfc=f.fielders[f.ctrl]; f.ball.gx=cfc.x; f.ball.gy=cfc.y-6; f.ball.x=f.ball.gx; f.ball.y=f.ball.gy;
     bumpClock();
-    if(game.outs>=3) finishPlay();   // 3rd out on the grab ends it immediately
+    if(playDoneAfterOut()) finishPlay();   // no runner left to double up (e.g. bases empty) -> dead on the catch
   }
   function homeRun(){ const b=game.field.ball;
     // which third of the outfield did it clear? (fair fan split L / C / R) — center pays the most
