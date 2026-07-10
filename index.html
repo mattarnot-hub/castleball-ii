@@ -5,10 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#08090E">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="description" content="Castle Ball II — a stadium baseball-style arcade sim. Bat behind the plate, then field with all players moving in unison.">
-<meta property="og:title" content="Castle Ball II — Stadium Sim">
+<meta name="description" content="Canadian Baseball — a sport-simulator baseball-style arcade sim. Bat behind the plate, then field with all players moving in unison.">
+<meta property="og:title" content="Canadian Baseball — Sport Simulator">
 <meta property="og:description" content="Bat against the CPU, then control the whole defense in unison. Balls, strikes, outs, innings.">
-<title>Castle Ball II — Stadium Sim</title>
+<title>Canadian Baseball — Sport Simulator</title>
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Bebas+Neue&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -54,8 +54,8 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
 </head>
 <body>
 <header>
-  <div class="logo">CASTLE<b>BALL</b> <span style="color:var(--gold)">II</span>
-    <small>STADIUM SIM · BAT &amp; FIELD</small>
+  <div class="logo">CANADIAN <b>BASEBALL</b>
+    <small>SPORT SIMULATOR · BAT &amp; FIELD</small>
   </div>
   <div class="nav"><a href="rules.html">◂ RULES CONFIGURATOR</a></div>
 </header>
@@ -79,7 +79,7 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
 </div>
 
 <p class="note">
-  An original stadium-style sim of Castle Ball — behind-the-plate batting + unison fielding, in the spirit of 16-bit
+  An original sport-style sim of Canadian Baseball — behind-the-plate batting + unison fielding, in the spirit of 16-bit
   baseball games. Original art; not affiliated with any commercial game. &nbsp;·&nbsp; <a href="rules.html">Configure the real rules →</a>
 </p>
 
@@ -105,7 +105,7 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
     skin:'#e8b48a', navy:'#22314f', ball:'#fbfbf4', ballSh:'#c7c7bd', shadow:'rgba(0,0,0,0.28)'
   };
 
-  // ── scoring (Castle Ball points — driven by the Rules Configurator via localStorage) ──
+  // ── scoring (Canadian Baseball points — driven by the Rules Configurator via localStorage) ──
   const PTS_DEFAULT = { homerun:500, hrLeft:1000, hrCenter:1500, hrRight:1000, first:50, second:75, third:100, home:1000, nomans:50, gate:100, gatemiss:100 };
   const PTS = Object.assign({}, PTS_DEFAULT);
   try { const saved = JSON.parse(localStorage.getItem('castleball-points-v2')||'null');
@@ -345,7 +345,7 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
   }
   function miniBanner(label,col,pts){ game.lastView='bat'; game.result={label,col,pts:pts||0,auto:true}; state='RESULT'; game.resultTimer=46; }
 
-  function addBall(){   // pitch passed OUTSIDE the castle net — a ball (count sticks)
+  function addBall(){   // pitch passed OUTSIDE the net — a ball (count sticks)
     game.balls++; beep(360,0.06);
     if(game.balls>=4){   // 4 balls = WALK: batter to 1st, forced runners pushed up (loaded -> a run scores)
       const b=game.bases;
@@ -354,7 +354,7 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
       banner({label:'WALK · BATTER TO 1ST',col:C.cream,pts:0});
     } else miniBanner('BALL  '+game.balls+' / 4', C.blue, 0);
   }
-  function addStrike(kind){   // ball got past the batter INTO the castle net -> defence scores
+  function addStrike(kind){   // ball got past the batter INTO the net -> defence scores
     game.strikes++; addDef(GATE_PTS); game.netFlash=16; beep(150,0.3,'sawtooth',0.06);
     if(game.strikes>=3){ // three into the net = the batter is out
       game.shake=12; recordOut(); game.lastView='bat'; newBatter();
@@ -730,7 +730,7 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
   function crowdFlashes(x0,y0,w,h){ for(let k=0;k<7;k++){ const seed=Math.floor(game.t/5)+k*131; if(seed%8===0){ const fx=x0+((seed*97)%w), fy=y0+((seed*57)%Math.max(1,h-2)); g.fillStyle='rgba(255,255,255,0.92)'; g.fillRect(fx,fy,3,3); } } }
   function signage(y){   // scrolling sponsor / event board + championship bunting
     g.fillStyle='#0a1410'; g.fillRect(0,y,W,14); g.fillStyle=C.gold; g.fillRect(0,y,W,1.5); g.fillRect(0,y+12.5,W,1.5);
-    const msg='    INTERNATIONAL  CASTLE  BALL    ·    WORLD  CHAMPIONSHIP    ·    CB  GLOBAL  LEAGUE    ·    HOLD  THE  CASTLE    ';
+    const msg='    INTERNATIONAL  CANADIAN  BASEBALL    ·    WORLD  CHAMPIONSHIP    ·    CB  GLOBAL  LEAGUE    ·    TRUE  NORTH  BASEBALL    ';
     g.save(); g.beginPath(); g.rect(0,y+1,W,12); g.clip(); g.font="9px 'Segoe UI',Arial,sans-serif"; const tw=g.measureText(msg).width||W;
     const off=(game.t*0.7)%tw; g.fillStyle='rgba(233,201,92,0.92)'; g.textAlign='left'; g.textBaseline='middle';
     for(let s=-1;s<=Math.ceil(W/tw)+1;s++) g.fillText(msg, s*tw-off, y+7);
@@ -949,7 +949,7 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
     g.strokeStyle='rgba(240,240,250,0.4)'; g.lineWidth=1;
     for(let i=gx;i<=gx+gw;i+=12){ g.beginPath(); g.moveTo(i,gy-3); g.lineTo(i,gy+gh); g.stroke(); }
     for(let j=gy-3;j<=gy+gh;j+=8){ g.beginPath(); g.moveTo(gx,j); g.lineTo(gx+gw,j); g.stroke(); }
-    ptxt('THE CASTLE NET',256,gy+gh+9,'rgba(240,240,250,0.45)',6,'center');
+    ptxt('THE NET',256,gy+gh+9,'rgba(240,240,250,0.45)',6,'center');
     // flashes red when a ball is driven into the net (+50 defence)
     if(game.netFlash>0 && Math.floor(game.t/4)%2===0){ g.fillStyle='rgba(212,69,58,0.45)'; g.fillRect(gx,gy-8,gw,gh+10);}
   }
@@ -1128,7 +1128,7 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
     if(!r.auto && game.resultTimer<=0 && Math.floor(game.t/16)%2===0) ptxt('▶ TAP / SPACE',256,252,C.gold,9,'center');
   }
   function drawTitle(){ drawBat(); g.fillStyle='rgba(8,9,14,0.84)'; g.fillRect(0,0,W,H);
-    txt('CASTLE BALL II',256,52,C.gold,32,'center'); stxt('STADIUM SIM',256,80,C.cream,14,'center',true);
+    txt('CANADIAN BASEBALL',256,52,C.gold,26,'center'); stxt('SPORT SIMULATOR',256,80,C.cream,14,'center',true);
     // ── HOW TO PLAY card ──
     panel(48,100,416,268);
     stxt('HOW  TO  PLAY',256,118,C.gold,13,'center',true);

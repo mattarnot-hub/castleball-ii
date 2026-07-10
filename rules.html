@@ -5,10 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#08090E">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="description" content="Castle Ball — Interactive rules configurator for the new hybrid sport.">
-<meta property="og:title" content="Castle Ball — Rules Configurator">
-<meta property="og:description" content="Design your own variant of Castle Ball. Toggle rules, pick your ball type, adjust scoring.">
-<title>Castle Ball — Rules Configurator</title>
+<meta name="description" content="Canadian Baseball — Interactive rules configurator for the new hybrid sport.">
+<meta property="og:title" content="Canadian Baseball — Rules Configurator">
+<meta property="og:description" content="Design your own variant of Canadian Baseball. Toggle rules, pick your ball type, adjust scoring.">
+<title>Canadian Baseball — Rules Configurator</title>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Serif+Display:ital@0;1&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
 <style>
 :root {
@@ -419,7 +419,7 @@ input[type=range]::-webkit-slider-thumb {
 <body>
 
 <header>
-  <div class="logo">CASTLE <span>BALL</span></div>
+  <div class="logo">CANADIAN <span>BASEBALL</span></div>
   <div class="header-badge">Rules Configurator</div>
   <a href="./" class="play-btn" onclick="savePoints()">🎮 PLAY THE GAME →</a>
   <div class="version-tag">v2.0 · Live Spec</div>
@@ -435,7 +435,7 @@ input[type=range]::-webkit-slider-thumb {
       <div class="sidebar-section-title">Field Structure
         <span class="locked-tag">🔒 FIXED</span><button class="section-toggle open" onclick="event.stopPropagation(); sectionToggle(this)" aria-label="Toggle section">▾</button></div>
       <div style="font-size:10px; color:var(--muted); line-height:1.7;">
-        Baseball diamond geometry, base distances, pitcher's mound position, foul lines, and outfield dimensions are permanent and cannot be modified. These form the immutable skeleton of Castle Ball.
+        Baseball diamond geometry, base distances, pitcher's mound position, foul lines, and outfield dimensions are permanent and cannot be modified. These form the immutable skeleton of Canadian Baseball.
       </div>
     </div>
 
@@ -459,7 +459,7 @@ input[type=range]::-webkit-slider-thumb {
 
     <!-- NET SIZE -->
     <div class="sidebar-section">
-      <div class="sidebar-section-title">Castle Gate Size <span class="tag">Equipment</span><button class="section-toggle open" onclick="event.stopPropagation(); sectionToggle(this)" aria-label="Toggle section">▾</button></div>
+      <div class="sidebar-section-title">Gate Size <span class="tag">Equipment</span><button class="section-toggle open" onclick="event.stopPropagation(); sectionToggle(this)" aria-label="Toggle section">▾</button></div>
       <div class="select-row">
         <div class="select-label">Goal net dimensions</div>
         <div class="select-desc">The net behind home plate that pitchers and defense target.</div>
@@ -484,7 +484,7 @@ input[type=range]::-webkit-slider-thumb {
       <div class="toggle-row" onclick="toggle('netSmashOut')">
         <div class="toggle-label">
           <div class="name">Net smash = inning over</div>
-          <div class="desc">If defense smashes ball into Castle Gate, ALL baserunners must be touching a base or the inning ends immediately.</div>
+          <div class="desc">If defense smashes ball into Gate, ALL baserunners must be touching a base or the inning ends immediately.</div>
         </div>
         <button class="toggle-switch on" id="t-netSmashOut"></button>
       </div>
@@ -543,7 +543,7 @@ input[type=range]::-webkit-slider-thumb {
       <div class="toggle-row" onclick="toggle('netLineCrossout')">
         <div class="toggle-label">
           <div class="name">Net-line cross = out at home</div>
-          <div class="desc">Ball crossing the Castle Gate line before runner tags home = runner out. Replaces collision logic.</div>
+          <div class="desc">Ball crossing the Gate line before runner tags home = runner out. Replaces collision logic.</div>
         </div>
         <button class="toggle-switch on" id="t-netLineCrossout"></button>
       </div>
@@ -716,7 +716,7 @@ input[type=range]::-webkit-slider-thumb {
             <tr class="highlight"><td>Score at Home</td><td class="muted">Complete circuit</td><td class="pts" id="sc-home2">1,000</td></tr>
             <tr><td>Home Run — by field</td><td class="muted">Left / Center / Right thirds</td><td class="pts" id="sc-homerun2">1,500</td></tr>
             <tr><td>No Man's Land hit</td><td class="muted">Between infield & outfield</td><td class="pts" id="sc-nomans2">50</td></tr>
-            <tr><td>Gate Goal (defense)</td><td class="muted">Ball crosses Castle Gate line</td><td class="pts" id="sc-gate2">50</td></tr>
+            <tr><td>Gate Goal (defense)</td><td class="muted">Ball crosses Gate line</td><td class="pts" id="sc-gate2">50</td></tr>
           </tbody>
         </table>
       </div>
@@ -1177,21 +1177,21 @@ function renderField() {
     <!-- ── BATTER ── -->
     ${batter}
 
-    <!-- ── CASTLE GATE NET ── -->
+    <!-- ── GATE NET ── -->
     <rect x="${netX1}" y="${netY1}" width="${nw}" height="${netH}"
       fill="rgba(192,57,43,0.08)" stroke="#C0392B" stroke-width="3" rx="3" filter="url(#gl)"/>
     ${netLines}
     ${netCrossLine}
     <text x="${cx}" y="${netY2+15}" text-anchor="middle"
       fill="#C0392B" font-size="11" font-family="Bebas Neue, sans-serif" letter-spacing="3">
-      CASTLE GATE · ${netLabels[state.pills.net]}
+      GATE · ${netLabels[state.pills.net]}
     </text>
 
     ${defRacketNote}
     ${offRacketNote}
 
     <!-- ── LABELS ── -->
-    <text x="16" y="650" fill="#C9A84C" font-size="8" font-family="Space Mono" opacity="0.4">CASTLE BALL · VARIANT #${buildHash()}</text>
+    <text x="16" y="650" fill="#C9A84C" font-size="8" font-family="Space Mono" opacity="0.4">CANADIAN BASEBALL · VARIANT #${buildHash()}</text>
     <text x="664" y="650" text-anchor="end" fill="${state.toggles.mixedLeague?'#4A9EDD':'transparent'}" font-size="8" font-family="Space Mono">⚡ MIXED 50/50</text>
   `;
 }
@@ -1220,14 +1220,14 @@ function renderRules() {
   const rules = [
     { always: true, text: 'Baseball diamond geometry is fixed. Bases, mound, and foul lines are permanent.', cond: '🔒 IMMUTABLE' },
     { key: 'defRackets', text: 'Defense fielders carry rackets. Enables deflection plays and net-smash attempts.' },
-    { key: 'netSmashOut', text: `If defense smashes ball into the Castle Gate, ALL baserunners must be touching a base — or the inning ends.`, cond: t.defRackets ? '' : '⚠ Requires defense rackets' },
+    { key: 'netSmashOut', text: `If defense smashes ball into the Gate, ALL baserunners must be touching a base — or the inning ends.`, cond: t.defRackets ? '' : '⚠ Requires defense rackets' },
     { key: 'catcherTagDouble', text: 'Backcatcher catches ball AND tags home simultaneously = two runners out.' },
     { key: 'throwToFirstOut', text: 'Even if batter is in the deflection zone, a clean throw beating them to 1st = out.' },
     { key: 'offRackets', text: 'Offensive baserunners carry their racket around the bases.' },
     { key: 'deflectFromBase', text: 'Within 6ft of their base, a runner may deflect a teammate\'s hit into the outfield. This is an offensive outfield redirect only — does NOT protect the runner from defensive throws or racket plays aimed to get them out.', cond: t.offRackets ? '' : '⚠ Requires offense rackets' },
     { key: 'footOnBase', text: 'One foot must be on the base at the moment of deflection. Runner remains live and can be thrown out — the zone grants no defensive immunity.', cond: t.deflectFromBase ? '' : '⚠ Deflection zone off' },
     { key: 'deflectOpenTerritory', text: 'Deflected ball must travel into the outfield — open, unoccupied territory. Cannot be used to interfere with a defensive play. Interference call = runner out.', cond: t.deflectFromBase ? '' : '⚠ Deflection zone off' },
-    { key: 'netLineCrossout', text: 'Ball crossing the Castle Gate line before runner tags home = runner is OUT. Replaces collision logic.' },
+    { key: 'netLineCrossout', text: 'Ball crossing the Gate line before runner tags home = runner is OUT. Replaces collision logic.' },
     { key: 'catchOut', text: 'Ball caught in the air before hitting ground = batter immediately out. Standard rule.' },
     { key: 'mixedLeague', text: 'Rosters 50% men / 50% women. Min. 4 of each on field at all times. All positions open to all genders.' },
 
@@ -1267,7 +1267,7 @@ function renderEquipment() {
   const cards = [
 
     { icon:'⚾', name:'Ball Type', detail: ballLabels[p.ball], desc: ballDesc[p.ball], color:'#C9A84C' },
-    { icon:'🥅', name:'Castle Gate', detail: netLabels[p.net], desc: netDesc[p.net], color:'#C0392B' },
+    { icon:'🥅', name:'Gate', detail: netLabels[p.net], desc: netDesc[p.net], color:'#C0392B' },
     { icon:'🎾', name:'Defense Rackets', detail: t.defRackets ? 'ACTIVE' : 'GLOVES ONLY', desc: t.defRackets ? 'Fielders use rackets. Enables net-smash outs and mid-air deflections. Expect frequent foul collisions.' : 'Standard gloves only. Traditional fielding rules apply.', color: t.defRackets ? '#4CAF50' : '#777' },
     { icon:'🏃', name:'Offense Rackets', detail: t.offRackets ? 'ACTIVE — Carry on base' : 'INACTIVE', desc: t.offRackets ? 'Baserunners keep their racket. Enables teammate deflection. Creates collision risk with defenders.' : 'Batter drops racket after hit. Standard base running.', color: t.offRackets ? '#4CAF50' : '#777' },
     { icon:t.mixedLeague ? '⚡' : '👥', name:'League Format', detail: t.mixedLeague ? 'Mixed 50/50' : 'Open Roster', desc: t.mixedLeague ? 'Minimum 4 men and 4 women on field at all times. All positions are gender-neutral. First professional mixed-gender sport.' : 'Open roster — no gender composition requirements.', color: t.mixedLeague ? '#4A9EDD' : '#777' },
@@ -1290,11 +1290,11 @@ function buildExport() {
   const date = new Date().toLocaleDateString('en-CA');
   const txt = `
 ╔══════════════════════════════════════════════════════╗
-║        CASTLE BALL — OFFICIAL SPEC SHEET           ║
+║        CANADIAN BASEBALL — OFFICIAL SPEC SHEET       ║
 ║           Variant #${buildHash().padEnd(4)} · Generated ${date}       ║
 ╚══════════════════════════════════════════════════════╝
 
-"Hold the castle. Own the diamond."
+"Play ball. Own the diamond."
 
 § FIELD
   Baseball diamond — FIXED / IMMUTABLE
@@ -1302,7 +1302,7 @@ function buildExport() {
 
 § EQUIPMENT
   Ball type    : ${ballLabels[p.ball]}
-  Castle Gate  : ${netLabels[p.net]}
+  Gate         : ${netLabels[p.net]}
   Defense rackets : ${on('defRackets')}
   Offense carry rackets on base : ${on('offRackets')}
 
@@ -1341,7 +1341,7 @@ function buildExport() {
   • Net smash rule creates inning-ending drama
   • Double-out at home replaces collision / injury risk
 
-Generated by Castle Ball Rules Configurator v2.0
+Generated by Canadian Baseball Rules Configurator v2.0
 `.trim();
 
   document.getElementById('export-text').textContent = txt;
@@ -1355,7 +1355,7 @@ function exportSpec() {
   const blob = new Blob([txt], {type:'text/plain'});
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = `CastleBall-Spec-${buildHash()}.txt`;
+  a.download = `CanadianBaseball-Spec-${buildHash()}.txt`;
   a.click();
 }
 
