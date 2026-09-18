@@ -5,30 +5,34 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#08090E">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="description" content="Canadian Baseball — Interactive rules configurator for the new hybrid sport.">
-<meta property="og:title" content="Canadian Baseball — Rules Configurator">
-<meta property="og:description" content="Design your own variant of Canadian Baseball. Toggle rules, pick your ball type, adjust scoring.">
-<title>Canadian Baseball — Rules Configurator</title>
+<meta name="description" content="CastleBall — Interactive rules configurator for the new hybrid sport.">
+<meta property="og:title" content="CastleBall — Rules Configurator">
+<meta property="og:description" content="Design your own variant of CastleBall. Toggle rules, pick your ball type, adjust scoring.">
+<title>CastleBall — Rules Configurator</title>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Serif+Display:ital@0;1&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
 <style>
 :root {
-  --gold: #C9A84C;
-  --gold-dim: rgba(201,168,76,0.18);
-  --gold-glow: rgba(201,168,76,0.35);
-  --dark: #08090E;
-  --panel: #0F1019;
-  --card: #141520;
-  --card2: #1A1C2C;
+  /* Wimbledon palette — Green #00693E · Purple #4B2882 · White #FFFFFF */
+  --gold: #a98be6;                       /* primary accent -> light Wimbledon purple */
+  --gold-dim: rgba(75,40,130,0.20);
+  --gold-glow: rgba(75,40,130,0.38);
+  --dark: #06140E;
+  --panel: #0B2016;
+  --card: #0E2419;
+  --card2: #123020;
   --red: #C0392B;
-  --green-field: #1a4a1a;
-  --green-light: #2d7a2d;
+  --green-field: #0b4a2c;
+  --green-light: #2f9e6a;
   --dirt: #7a5535;
-  --cream: #F0E8D0;
-  --muted: rgba(240,232,208,0.45);
-  --border: rgba(201,168,76,0.18);
-  --on: #4CAF50;
+  --cream: #FFFFFF;
+  --muted: rgba(255,255,255,0.52);
+  --border: rgba(75,40,130,0.35);
+  --on: #2f9e6a;
   --off: #555;
-  --blue: #4A9EDD;
+  --blue: #7c5cc4;
+  --purple: #4B2882;
+  --green: #00693E;
+  --white: #FFFFFF;
 }
 
 * { margin:0; padding:0; box-sizing:border-box; }
@@ -52,8 +56,12 @@ header {
   display: flex; align-items: center; justify-content: space-between;
   height: 56px;
 }
-.logo { font-family:'Bebas Neue'; font-size:28px; letter-spacing:4px; color:var(--gold); }
+.logo { font-family:'Bebas Neue'; font-size:28px; letter-spacing:4px; color:var(--gold); display:flex; align-items:center; }
 .logo span { color: var(--cream); font-size:18px; }
+.logo-img { height:46px; width:auto; display:block; filter:drop-shadow(0 2px 5px rgba(0,0,0,0.55)); }
+.crest-footer { width:100%; display:flex; flex-direction:column; align-items:center; gap:10px; padding:30px 16px 36px; border-top:1px solid var(--border); background:var(--dark); }
+.crest-footer img { height:220px; width:auto; filter:drop-shadow(0 3px 12px rgba(0,0,0,0.5)); }
+.crest-footer span { font-family:'Space Mono',monospace; font-size:10px; letter-spacing:2px; color:var(--muted); }
 .header-badge {
   font-size:10px; letter-spacing:3px; color:var(--gold);
   border:1px solid var(--border); padding:4px 12px; text-transform:uppercase;
@@ -63,10 +71,10 @@ header {
   font-family:'Bebas Neue'; font-size:16px; letter-spacing:2px;
   background:var(--gold); color:#0c0d12; text-decoration:none;
   padding:8px 18px; border-radius:6px; border:none;
-  box-shadow:0 2px 10px rgba(232,200,74,0.35); transition:transform .12s, box-shadow .12s;
+  box-shadow:0 2px 10px rgba(169,139,230,0.35); transition:transform .12s, box-shadow .12s;
   white-space:nowrap;
 }
-.play-btn:hover { transform:translateY(-1px); box-shadow:0 4px 16px rgba(232,200,74,0.55); }
+.play-btn:hover { transform:translateY(-1px); box-shadow:0 4px 16px rgba(169,139,230,0.55); }
 
 /* ── LAYOUT ── */
 .app-shell {
@@ -109,12 +117,12 @@ header {
 .toggle-row {
   display:flex; align-items:flex-start; justify-content:space-between;
   gap:12px; padding:10px 0;
-  border-bottom:1px solid rgba(201,168,76,0.07);
+  border-bottom:1px solid rgba(169,139,230,0.07);
   cursor:pointer;
   transition: background 0.15s;
 }
 .toggle-row:last-child { border-bottom:none; }
-.toggle-row:hover { background: rgba(201,168,76,0.04); margin:0 -20px; padding:10px 20px; }
+.toggle-row:hover { background: rgba(169,139,230,0.04); margin:0 -20px; padding:10px 20px; }
 
 .toggle-label { flex:1; }
 .toggle-label .name {
@@ -142,7 +150,7 @@ header {
 /* ── SELECT ROWS ── */
 .select-row {
   padding:10px 0;
-  border-bottom:1px solid rgba(201,168,76,0.07);
+  border-bottom:1px solid rgba(169,139,230,0.07);
 }
 .select-row:last-child { border-bottom:none; }
 .select-label { font-size:11px; font-weight:700; color:var(--cream); margin-bottom:6px; letter-spacing:0.5px; }
@@ -156,12 +164,12 @@ header {
   transition:all 0.15s; text-transform:uppercase;
 }
 .pill.active { border-color:var(--gold); color:var(--gold); background:var(--gold-dim); }
-.pill:hover:not(.active) { border-color:rgba(201,168,76,0.4); color:var(--cream); }
+.pill:hover:not(.active) { border-color:rgba(169,139,230,0.4); color:var(--cream); }
 
 /* ── SLIDER ── */
 .slider-row {
   padding:10px 0;
-  border-bottom:1px solid rgba(201,168,76,0.07);
+  border-bottom:1px solid rgba(169,139,230,0.07);
 }
 .slider-row:last-child { border-bottom:none; }
 .slider-label-row { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
@@ -252,14 +260,14 @@ input[type=range]::-webkit-slider-thumb {
   padding:8px 12px; text-align:left; border-bottom:1px solid var(--border);
 }
 .score-table td {
-  font-size:12px; padding:10px 12px; border-bottom:1px solid rgba(201,168,76,0.07);
+  font-size:12px; padding:10px 12px; border-bottom:1px solid rgba(169,139,230,0.07);
   color:var(--cream); vertical-align:top;
 }
 .score-table td.pts {
   font-family:'Bebas Neue'; font-size:22px; color:var(--gold); text-align:right; white-space:nowrap;
 }
-.score-table tr:hover td { background:rgba(201,168,76,0.04); }
-.score-table tr.highlight td { background:rgba(201,168,76,0.08); }
+.score-table tr:hover td { background:rgba(169,139,230,0.04); }
+.score-table tr.highlight td { background:rgba(169,139,230,0.08); }
 .score-table td.muted { color:var(--muted); font-size:10px; }
 
 /* ── RULES CALLOUT ── */
@@ -296,7 +304,7 @@ input[type=range]::-webkit-slider-thumb {
 /* ── MIXED LEAGUE BADGE ── */
 .mixed-badge {
   display:flex; align-items:center; gap:10px;
-  background: linear-gradient(135deg, rgba(74,158,221,0.12), rgba(201,168,76,0.12));
+  background: linear-gradient(135deg, rgba(74,158,221,0.12), rgba(169,139,230,0.12));
   border:1px solid rgba(74,158,221,0.3); border-radius:3px;
   padding:12px 16px; margin-top:12px;
 }
@@ -324,7 +332,7 @@ input[type=range]::-webkit-slider-thumb {
   min-height: 44px;
   -webkit-tap-highlight-color: transparent;
 }
-.section-toggle:active { background: rgba(201,168,76,0.15); }
+.section-toggle:active { background: rgba(169,139,230,0.15); }
 .section-toggle.open  { transform: rotate(0deg); }
 .section-toggle.closed { transform: rotate(-90deg); }
 
@@ -419,7 +427,7 @@ input[type=range]::-webkit-slider-thumb {
 <body>
 
 <header>
-  <div class="logo">CANADIAN <span>BASEBALL</span></div>
+  <div class="logo"><img src="castleball-logo.png" alt="CastleBall" class="logo-img"></div>
   <div class="header-badge">Rules Configurator</div>
   <a href="./" class="play-btn" onclick="savePoints()">🎮 PLAY THE GAME →</a>
   <div class="version-tag">v2.0 · Live Spec</div>
@@ -435,7 +443,7 @@ input[type=range]::-webkit-slider-thumb {
       <div class="sidebar-section-title">Field Structure
         <span class="locked-tag">🔒 FIXED</span><button class="section-toggle open" onclick="event.stopPropagation(); sectionToggle(this)" aria-label="Toggle section">▾</button></div>
       <div style="font-size:10px; color:var(--muted); line-height:1.7;">
-        Baseball diamond geometry, base distances, pitcher's mound position, foul lines, and outfield dimensions are permanent and cannot be modified. These form the immutable skeleton of Canadian Baseball.
+        Baseball diamond geometry, base distances, pitcher's mound position, foul lines, and outfield dimensions are permanent and cannot be modified. These form the immutable skeleton of CastleBall.
       </div>
     </div>
 
@@ -748,6 +756,11 @@ input[type=range]::-webkit-slider-thumb {
   </main>
 </div>
 
+<footer class="crest-footer">
+  <img src="castleball-crest.png" alt="CastleBall — Kids' League crest, est. 2026">
+  <span>OFFICIAL CASTLEBALL CREST · KIDS' LEAGUE · EST. 2026</span>
+</footer>
+
 <script>
 // ── STATE ───────────────────────────────────────────────────────────────────
 const state = {
@@ -923,8 +936,8 @@ function renderField() {
   // Label position: midpoint arc at mid-radius
   const nmLblR = nmIn + nmW/2;
   const noMansZone = `
-    <path d="${nmPath}" fill="rgba(201,168,76,0.10)" stroke="rgba(201,168,76,0.35)" stroke-width="1" stroke-dasharray="4,3"/>
-    <text x="${cx}" y="${hY - nmLblR - 4}" text-anchor="middle" fill="#C9A84C" font-size="9" font-family="Space Mono" opacity="0.85">NO MAN'S LAND · ${state.sliders.nomans} pts</text>`;
+    <path d="${nmPath}" fill="rgba(169,139,230,0.10)" stroke="rgba(169,139,230,0.35)" stroke-width="1" stroke-dasharray="4,3"/>
+    <text x="${cx}" y="${hY - nmLblR - 4}" text-anchor="middle" fill="#a98be6" font-size="9" font-family="Space Mono" opacity="0.85">NO MAN'S LAND · ${state.sliders.nomans} pts</text>`;
 
   // ── BALL ─────────────────────────────────────────────────────────────────
   const ballColors = { dodgeball:'#E74C3C', pickleball:'#F1C40F', tennis:'#AADD00', baseball:'#F5F5F5', nerf:'#FF6B35', golf:'#F5F5DC', blitzball:'#3AB4F2' };
@@ -1008,17 +1021,17 @@ function renderField() {
     <rect x="1.5" y="-32" width="2" height="3" rx="1" fill="#bbb" transform="rotate(10 2 -22)"/>
     <!-- Racket HEAD — wide oval, clearly not a bat -->
     <ellipse cx="3.5" cy="-37" rx="6" ry="8"
-      fill="rgba(201,168,76,0.2)" stroke="#C9A84C" stroke-width="1.8"
+      fill="rgba(169,139,230,0.2)" stroke="#a98be6" stroke-width="1.8"
       transform="rotate(10 3.5 -37)"/>
     <!-- Strings — horizontal (3 lines across the oval) -->
-    <line x1="-2" y1="-40" x2="9"  y2="-39" stroke="#C9A84C" stroke-width="0.7" opacity="0.9" transform="rotate(10 3.5 -37)"/>
-    <line x1="-2.5" y1="-37" x2="9.5" y2="-36" stroke="#C9A84C" stroke-width="0.7" opacity="0.9" transform="rotate(10 3.5 -37)"/>
-    <line x1="-2"  y1="-34" x2="9"  y2="-33" stroke="#C9A84C" stroke-width="0.7" opacity="0.9" transform="rotate(10 3.5 -37)"/>
-    <line x1="-1"  y1="-31" x2="8"  y2="-30" stroke="#C9A84C" stroke-width="0.7" opacity="0.9" transform="rotate(10 3.5 -37)"/>
+    <line x1="-2" y1="-40" x2="9"  y2="-39" stroke="#a98be6" stroke-width="0.7" opacity="0.9" transform="rotate(10 3.5 -37)"/>
+    <line x1="-2.5" y1="-37" x2="9.5" y2="-36" stroke="#a98be6" stroke-width="0.7" opacity="0.9" transform="rotate(10 3.5 -37)"/>
+    <line x1="-2"  y1="-34" x2="9"  y2="-33" stroke="#a98be6" stroke-width="0.7" opacity="0.9" transform="rotate(10 3.5 -37)"/>
+    <line x1="-1"  y1="-31" x2="8"  y2="-30" stroke="#a98be6" stroke-width="0.7" opacity="0.9" transform="rotate(10 3.5 -37)"/>
     <!-- Strings — vertical (3 lines down the oval) -->
-    <line x1="0"   y1="-44" x2="-1" y2="-30" stroke="#C9A84C" stroke-width="0.7" opacity="0.9" transform="rotate(10 3.5 -37)"/>
-    <line x1="3.5" y1="-45" x2="2.5" y2="-29" stroke="#C9A84C" stroke-width="0.7" opacity="0.9" transform="rotate(10 3.5 -37)"/>
-    <line x1="7"   y1="-44" x2="6"  y2="-30" stroke="#C9A84C" stroke-width="0.7" opacity="0.9" transform="rotate(10 3.5 -37)"/>
+    <line x1="0"   y1="-44" x2="-1" y2="-30" stroke="#a98be6" stroke-width="0.7" opacity="0.9" transform="rotate(10 3.5 -37)"/>
+    <line x1="3.5" y1="-45" x2="2.5" y2="-29" stroke="#a98be6" stroke-width="0.7" opacity="0.9" transform="rotate(10 3.5 -37)"/>
+    <line x1="7"   y1="-44" x2="6"  y2="-30" stroke="#a98be6" stroke-width="0.7" opacity="0.9" transform="rotate(10 3.5 -37)"/>
 
     <!-- NECK -->
     <rect x="-1" y="-24" width="4" height="3" rx="1" fill="#FDBCB4"/>
@@ -1042,7 +1055,7 @@ function renderField() {
     <text x="10" y="-20" fill="#F0E8D0" font-size="7" font-family="Space Mono" opacity="0.8">BATTER</text>
   </g>`;
 
-  const defRacketNote = state.toggles.defRackets ? `<text x="${wX1-14}" y="${wY1+20}" text-anchor="middle" fill="#C9A84C" font-size="9" font-family="Space Mono">🎾 DEF</text>` : '';
+  const defRacketNote = state.toggles.defRackets ? `<text x="${wX1-14}" y="${wY1+20}" text-anchor="middle" fill="#a98be6" font-size="9" font-family="Space Mono">🎾 DEF</text>` : '';
   const offRacketNote = state.toggles.offRackets ? `<text x="${wX3+14}" y="${wY3+20}" text-anchor="end"   fill="#4CAF50" font-size="9" font-family="Space Mono">🎾 OFF</text>` : '';
 
   svg.innerHTML = `
@@ -1104,13 +1117,13 @@ function renderField() {
     <path d="M ${wX1} ${wY1} C ${wX1*0.5+wCX*0.5} ${wY1*0.3+wCY*0.7} ${wX3*0.5+wCX*0.5} ${wY3*0.3+wCY*0.7} ${wX3} ${wY3}"
       fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="1.5"/>
     <!-- Distance markers on wall -->
-    <text x="${wX3 - 8}" y="${wY3 - 10}" text-anchor="end" fill="#C9A84C" font-size="9" font-family="Space Mono" opacity="0.85">415ft</text>
-    <text x="${wCX}" y="${wCY - 10}" text-anchor="middle" fill="#C9A84C" font-size="9" font-family="Space Mono" opacity="0.85">450ft</text>
-    <text x="${wX1 + 8}" y="${wY1 - 10}" text-anchor="start" fill="#C9A84C" font-size="9" font-family="Space Mono" opacity="0.85">415ft</text>
+    <text x="${wX3 - 8}" y="${wY3 - 10}" text-anchor="end" fill="#a98be6" font-size="9" font-family="Space Mono" opacity="0.85">415ft</text>
+    <text x="${wCX}" y="${wCY - 10}" text-anchor="middle" fill="#a98be6" font-size="9" font-family="Space Mono" opacity="0.85">450ft</text>
+    <text x="${wX1 + 8}" y="${wY1 - 10}" text-anchor="start" fill="#a98be6" font-size="9" font-family="Space Mono" opacity="0.85">415ft</text>
 
     <!-- ── OUTFIELD WALL LABEL ── -->
     <text x="${cx}" y="${wCY + 18}" text-anchor="middle"
-      fill="#C9A84C" font-size="9" font-family="Space Mono" opacity="0.55">
+      fill="#a98be6" font-size="9" font-family="Space Mono" opacity="0.55">
       OUTFIELD WALL — HR: L ${state.sliders.hrLeft} · C ${state.sliders.hrCenter} · R ${state.sliders.hrRight} pts
     </text>
 
@@ -1147,20 +1160,20 @@ function renderField() {
     <!-- ── BASES ── -->
     <!-- 2nd base -->
     <rect x="${SECO.x-10}" y="${SECO.y-10}" width="20" height="20"
-      fill="white" stroke="#C9A84C" stroke-width="2" rx="1"/>
+      fill="white" stroke="#a98be6" stroke-width="2" rx="1"/>
     <text x="${SECO.x}" y="${SECO.y - 16}" text-anchor="middle"
-      fill="#C9A84C" font-size="9" font-family="Space Mono">2ND · ${state.sliders.second}pts</text>
+      fill="#a98be6" font-size="9" font-family="Space Mono">2ND · ${state.sliders.second}pts</text>
 
     <!-- 1st base -->
     <rect x="${FIRS.x-10}" y="${FIRS.y-10}" width="20" height="20"
-      fill="white" stroke="#C9A84C" stroke-width="2" rx="1"/>
-    <text x="${FIRS.x+28}" y="${FIRS.y+4}" fill="#C9A84C" font-size="9" font-family="Space Mono">1ST · ${state.sliders.first}pts</text>
+      fill="white" stroke="#a98be6" stroke-width="2" rx="1"/>
+    <text x="${FIRS.x+28}" y="${FIRS.y+4}" fill="#a98be6" font-size="9" font-family="Space Mono">1ST · ${state.sliders.first}pts</text>
 
     <!-- 3rd base -->
     <rect x="${THIR.x-10}" y="${THIR.y-10}" width="20" height="20"
-      fill="white" stroke="#C9A84C" stroke-width="2" rx="1"/>
+      fill="white" stroke="#a98be6" stroke-width="2" rx="1"/>
     <text x="${THIR.x-28}" y="${THIR.y+4}" text-anchor="end"
-      fill="#C9A84C" font-size="9" font-family="Space Mono">3RD · ${state.sliders.third}pts</text>
+      fill="#a98be6" font-size="9" font-family="Space Mono">3RD · ${state.sliders.third}pts</text>
 
     <!-- ── THROW-TO-FIRST LINE ── -->
     ${throwFirstLine}
@@ -1170,9 +1183,9 @@ function renderField() {
 
     <!-- ── HOME PLATE (pentagon) ── -->
     <polygon points="${HOME.x},${HOME.y-13} ${HOME.x-11},${HOME.y} ${HOME.x-11},${HOME.y+11} ${HOME.x+11},${HOME.y+11} ${HOME.x+11},${HOME.y}"
-      fill="white" stroke="#C9A84C" stroke-width="2"/>
+      fill="white" stroke="#a98be6" stroke-width="2"/>
     <text x="${HOME.x}" y="${HOME.y+26}" text-anchor="middle"
-      fill="#C9A84C" font-size="9" font-family="Space Mono">${state.sliders.home} pts</text>
+      fill="#a98be6" font-size="9" font-family="Space Mono">${state.sliders.home} pts</text>
 
     <!-- ── BATTER ── -->
     ${batter}
@@ -1191,7 +1204,7 @@ function renderField() {
     ${offRacketNote}
 
     <!-- ── LABELS ── -->
-    <text x="16" y="650" fill="#C9A84C" font-size="8" font-family="Space Mono" opacity="0.4">CANADIAN BASEBALL · VARIANT #${buildHash()}</text>
+    <text x="16" y="650" fill="#a98be6" font-size="8" font-family="Space Mono" opacity="0.4">CASTLEBALL · VARIANT #${buildHash()}</text>
     <text x="664" y="650" text-anchor="end" fill="${state.toggles.mixedLeague?'#4A9EDD':'transparent'}" font-size="8" font-family="Space Mono">⚡ MIXED 50/50</text>
   `;
 }
@@ -1266,7 +1279,7 @@ function renderEquipment() {
 
   const cards = [
 
-    { icon:'⚾', name:'Ball Type', detail: ballLabels[p.ball], desc: ballDesc[p.ball], color:'#C9A84C' },
+    { icon:'⚾', name:'Ball Type', detail: ballLabels[p.ball], desc: ballDesc[p.ball], color:'#a98be6' },
     { icon:'🥅', name:'Gate', detail: netLabels[p.net], desc: netDesc[p.net], color:'#C0392B' },
     { icon:'🎾', name:'Defense Rackets', detail: t.defRackets ? 'ACTIVE' : 'GLOVES ONLY', desc: t.defRackets ? 'Fielders use rackets. Enables net-smash outs and mid-air deflections. Expect frequent foul collisions.' : 'Standard gloves only. Traditional fielding rules apply.', color: t.defRackets ? '#4CAF50' : '#777' },
     { icon:'🏃', name:'Offense Rackets', detail: t.offRackets ? 'ACTIVE — Carry on base' : 'INACTIVE', desc: t.offRackets ? 'Baserunners keep their racket. Enables teammate deflection. Creates collision risk with defenders.' : 'Batter drops racket after hit. Standard base running.', color: t.offRackets ? '#4CAF50' : '#777' },
@@ -1290,7 +1303,7 @@ function buildExport() {
   const date = new Date().toLocaleDateString('en-CA');
   const txt = `
 ╔══════════════════════════════════════════════════════╗
-║        CANADIAN BASEBALL — OFFICIAL SPEC SHEET       ║
+║            CASTLEBALL — OFFICIAL SPEC SHEET          ║
 ║           Variant #${buildHash().padEnd(4)} · Generated ${date}       ║
 ╚══════════════════════════════════════════════════════╝
 
@@ -1341,7 +1354,7 @@ function buildExport() {
   • Net smash rule creates inning-ending drama
   • Double-out at home replaces collision / injury risk
 
-Generated by Canadian Baseball Rules Configurator v2.0
+Generated by CastleBall Rules Configurator v2.0
 `.trim();
 
   document.getElementById('export-text').textContent = txt;
@@ -1355,7 +1368,7 @@ function exportSpec() {
   const blob = new Blob([txt], {type:'text/plain'});
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = `CanadianBaseball-Spec-${buildHash()}.txt`;
+  a.download = `CastleBall-Spec-${buildHash()}.txt`;
   a.click();
 }
 

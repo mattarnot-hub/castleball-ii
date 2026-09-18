@@ -5,20 +5,23 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#08090E">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="description" content="Canadian Baseball — a sport-simulator baseball-style arcade sim. Bat behind the plate, then field with all players moving in unison.">
-<meta property="og:title" content="Canadian Baseball — Sport Simulator">
+<meta name="description" content="CastleBall — a sport-simulator baseball-style arcade sim. Bat behind the plate, then field with all players moving in unison.">
+<meta property="og:title" content="CastleBall — Sport Simulator">
 <meta property="og:description" content="Bat against the CPU, then control the whole defense in unison. Balls, strikes, outs, innings.">
-<title>Canadian Baseball — Sport Simulator</title>
+<title>CastleBall — Sport Simulator</title>
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Bebas+Neue&display=swap" rel="stylesheet">
 <style>
 :root{
-  --gold:#C9A84C; --dark:#08090E; --panel:#0F1019; --cream:#F0E8D0;
-  --border:rgba(201,168,76,0.22); --muted:rgba(240,232,208,0.45);
+  /* Wimbledon palette — Green #00693E · Purple #4B2882 · White #FFFFFF */
+  --green:#00693E; --green-lt:#2f9e6a; --purple:#4B2882; --purple-lt:#a98be6; --white:#FFFFFF;
+  --gold:#a98be6;            /* primary accent -> light Wimbledon purple (readable on dark) */
+  --dark:#06140E; --panel:#0B2016; --cream:#FFFFFF;
+  --border:rgba(75,40,130,0.45); --muted:rgba(255,255,255,0.5);
 }
 *{margin:0;padding:0;box-sizing:border-box;}
 html,body{height:100%;}
 body{
-  background:radial-gradient(circle at 50% 0%, #15161f 0%, var(--dark) 60%);
+  background:radial-gradient(circle at 50% 0%, #123625 0%, var(--dark) 60%);
   color:var(--cream); font-family:'Press Start 2P',monospace;
   min-height:100vh; display:flex; flex-direction:column; align-items:center;
   overflow-x:hidden; padding:14px 10px 30px;
@@ -26,11 +29,15 @@ body{
 header{ width:100%; max-width:820px; display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:14px; }
 .logo{font-family:'Bebas Neue';font-size:30px;letter-spacing:3px;color:var(--gold);line-height:1;}
 .logo b{color:var(--cream);}
-.logo small{display:block;font-family:'Press Start 2P';font-size:8px;letter-spacing:2px;color:var(--muted);margin-top:4px;}
+.logo-img{ height:70px; width:auto; display:block; filter:drop-shadow(0 2px 5px rgba(0,0,0,0.55)); }
+.logo small{display:block;font-family:'Press Start 2P';font-size:8px;letter-spacing:2px;color:var(--muted);margin-top:6px;}
+.crest{ width:100%; max-width:820px; margin-top:26px; display:flex; flex-direction:column; align-items:center; gap:8px; }
+.crest img{ height:230px; width:auto; filter:drop-shadow(0 3px 10px rgba(0,0,0,0.5)); }
+.crest span{ font-family:'Press Start 2P',monospace; font-size:7px; letter-spacing:2px; color:var(--muted); }
 .nav a{ font-size:8px;color:var(--gold);text-decoration:none;border:1px solid var(--border); padding:8px 10px;letter-spacing:1px;transition:.15s;display:inline-block; }
 .nav a:hover{background:var(--gold);color:var(--dark);}
 .cab{ position:relative; width:100%; max-width:820px; border:2px solid var(--border); border-radius:10px;
-  background:#000; padding:14px; box-shadow:0 0 40px rgba(201,168,76,0.08), inset 0 0 0 2px #000; }
+  background:#000; padding:14px; box-shadow:0 0 40px rgba(75,40,130,0.22), inset 0 0 0 2px #000; }
 .screen-wrap{position:relative; width:100%; aspect-ratio:512/448; background:#000; overflow:hidden; border-radius:4px;}
 canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; -webkit-user-select:none; user-select:none; }
 .crt{ position:absolute; inset:0; pointer-events:none; border-radius:4px;
@@ -54,7 +61,8 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
 </head>
 <body>
 <header>
-  <div class="logo">CANADIAN <b>BASEBALL</b>
+  <div class="logo">
+    <img src="castleball-logo.png" alt="CastleBall" class="logo-img">
     <small>SPORT SIMULATOR · BAT &amp; FIELD</small>
   </div>
   <div class="nav"><a href="rules.html">◂ RULES CONFIGURATOR</a></div>
@@ -79,9 +87,14 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
 </div>
 
 <p class="note">
-  An original sport-style sim of Canadian Baseball — behind-the-plate batting + unison fielding, in the spirit of 16-bit
+  An original sport-style sim of CastleBall — behind-the-plate batting + unison fielding, in the spirit of 16-bit
   baseball games. Original art; not affiliated with any commercial game. &nbsp;·&nbsp; <a href="rules.html">Configure the real rules →</a>
 </p>
+
+<div class="crest">
+  <img src="castleball-crest.png" alt="CastleBall — Kids' League crest, est. 2026">
+  <span>OFFICIAL CASTLEBALL CREST · KIDS' LEAGUE · EST. 2026</span>
+</div>
 
 <script>
 (() => {
@@ -94,18 +107,19 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
   if(bSfx) bSfx.addEventListener('click',()=>{ sfxOn=!sfxOn; bSfx.innerHTML=sfxOn?'&#128266; SOUND: ON':'&#128263; SOUND: OFF'; bSfx.classList.toggle('off',!sfxOn); });
 
   // ── palette ───────────────────────────────────────────────────────
+  // Wimbledon palette — Green #00693E · Purple #4B2882 · White #FFFFFF (with readable tints)
   const C = {
-    grassHi:'#3a9b3a', grassLo:'#1f5a1f', grassMow:'#348834', grassDk:'#16441b',
+    grassHi:'#1c8a50', grassLo:'#0b4a2c', grassMow:'#17784a', grassDk:'#0a3d24',
     dirt:'#b07a42', dirtHi:'#c79055', dirtLo:'#7d5430', dirtLine:'#caa86a',
-    line:'#f2efe0', wall:'#10502a', wallHi:'#1c6b3a', stand1:'#5b6470', stand2:'#454d59', stand3:'#6e7884',
-    panel:'#0e3d24', panelHi:'#1a5c38', panelEdge:'#f2efe0',
-    gold:'#C9A84C', cream:'#F0E8D0', dark:'#08090E', wht:'#ffffff',
-    red:'#d4453a', yellow:'#e8c84a', green:'#54c45a',
-    homeJ:'#3f7fd0', homeJd:'#2a5da0', homePant:'#bcd0ec', awayJ:'#d9d9e2', awayJd:'#8e8e9c', awayPant:'#c0c0cc',
-    skin:'#e8b48a', navy:'#22314f', ball:'#fbfbf4', ballSh:'#c7c7bd', shadow:'rgba(0,0,0,0.28)'
+    line:'#ffffff', wall:'#3d2470', wallHi:'#5a3aa0', stand1:'#5b6470', stand2:'#454d59', stand3:'#6e7884',
+    panel:'#0b2016', panelHi:'#123a24', panelEdge:'#ffffff',
+    gold:'#b28ef0', cream:'#FFFFFF', dark:'#06140E', wht:'#ffffff',
+    red:'#d4453a', yellow:'#c9a5ff', green:'#2fa76a',
+    homeJ:'#5a3aa0', homeJd:'#3d2470', homePant:'#e0d4f5', awayJ:'#f2f2f7', awayJd:'#c8c8d4', awayPant:'#e6e6ee',
+    skin:'#e8b48a', navy:'#3a2668', ball:'#fbfbf4', ballSh:'#c7c7bd', shadow:'rgba(0,0,0,0.28)'
   };
 
-  // ── scoring (Canadian Baseball points — driven by the Rules Configurator via localStorage) ──
+  // ── scoring (CastleBall points — driven by the Rules Configurator via localStorage) ──
   const PTS_DEFAULT = { homerun:500, hrLeft:1000, hrCenter:1500, hrRight:1000, first:50, second:75, third:100, home:1000, nomans:50, gate:100, gatemiss:100 };
   const PTS = Object.assign({}, PTS_DEFAULT);
   try { const saved = JSON.parse(localStorage.getItem('castleball-points-v2')||'null');
@@ -736,7 +750,7 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
   function crowdFlashes(x0,y0,w,h){ for(let k=0;k<7;k++){ const seed=Math.floor(game.t/5)+k*131; if(seed%8===0){ const fx=x0+((seed*97)%w), fy=y0+((seed*57)%Math.max(1,h-2)); g.fillStyle='rgba(255,255,255,0.92)'; g.fillRect(fx,fy,3,3); } } }
   function signage(y){   // scrolling sponsor / event board + championship bunting
     g.fillStyle='#0a1410'; g.fillRect(0,y,W,14); g.fillStyle=C.gold; g.fillRect(0,y,W,1.5); g.fillRect(0,y+12.5,W,1.5);
-    const msg='    INTERNATIONAL  CANADIAN  BASEBALL    ·    WORLD  CHAMPIONSHIP    ·    CB  GLOBAL  LEAGUE    ·    TRUE  NORTH  BASEBALL    ';
+    const msg='    INTERNATIONAL  CASTLEBALL    ·    WORLD  CHAMPIONSHIP    ·    CB  GLOBAL  LEAGUE    ·    KIDS  LEAGUE  EST.  2026    ';
     g.save(); g.beginPath(); g.rect(0,y+1,W,12); g.clip(); g.font="9px 'Segoe UI',Arial,sans-serif"; const tw=g.measureText(msg).width||W;
     const off=(game.t*0.7)%tw; g.fillStyle='rgba(233,201,92,0.92)'; g.textAlign='left'; g.textBaseline='middle';
     for(let s=-1;s<=Math.ceil(W/tw)+1;s++) g.fillText(msg, s*tw-off, y+7);
@@ -762,10 +776,10 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
     g.save(); grassPath(); g.clip();
     for(let x=0;x<W;x+=40){ g.fillStyle=(Math.floor(x/40)%2)?'rgba(255,255,255,0.05)':'rgba(0,0,0,0.05)'; g.fillRect(x,0,20,H); }
     g.restore();
-    // DARK-GREEN outfield wall pushed HIGHER — a deeper outfield sits in front of it
+    // PURPLE outfield wall pushed HIGHER — a deeper outfield sits in front of it
     g.lineCap='round';
-    g.strokeStyle='#0c433c'; g.lineWidth=17; g.beginPath(); g.arc(256,708,590,Math.PI*1.358,Math.PI*1.642); g.stroke();
-    g.strokeStyle='#155f54'; g.lineWidth=3;  g.beginPath(); g.arc(256,708,598,Math.PI*1.358,Math.PI*1.642); g.stroke();   // lit top rail
+    g.strokeStyle='#3d2470'; g.lineWidth=17; g.beginPath(); g.arc(256,708,590,Math.PI*1.358,Math.PI*1.642); g.stroke();
+    g.strokeStyle='#5a3aa0'; g.lineWidth=3;  g.beginPath(); g.arc(256,708,598,Math.PI*1.358,Math.PI*1.642); g.stroke();   // lit top rail
     g.lineCap='butt';
 
     drawBatInfield();
@@ -784,12 +798,12 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
     if(!TOUCH || state!=='PITCH') return;
     g.textAlign='center'; g.textBaseline='middle';
     const arrow=(b,gl)=>{ g.fillStyle='rgba(12,16,22,0.5)'; g.fillRect(b.x,b.y,b.w,b.h);
-      g.strokeStyle='rgba(201,168,76,0.8)'; g.lineWidth=2; g.strokeRect(b.x,b.y,b.w,b.h);
+      g.strokeStyle='rgba(178,142,240,0.8)'; g.lineWidth=2; g.strokeRect(b.x,b.y,b.w,b.h);
       g.fillStyle=C.gold; g.font='700 30px Arial'; g.fillText(gl,b.x+b.w/2,b.y+b.h/2+1); };
     arrow(BAT_BTN.left,'◂'); arrow(BAT_BTN.right,'▸');
     const h=BAT_BTN.hit, ready=game.pitch&&game.pitch.released;   // HIT lights up once the ball is on its way
-    g.fillStyle=ready?'rgba(201,168,76,0.30)':'rgba(12,16,22,0.55)'; g.fillRect(h.x,h.y,h.w,h.h);
-    g.strokeStyle='rgba(201,168,76,0.95)'; g.lineWidth=2.5; g.strokeRect(h.x,h.y,h.w,h.h);
+    g.fillStyle=ready?'rgba(178,142,240,0.30)':'rgba(12,16,22,0.55)'; g.fillRect(h.x,h.y,h.w,h.h);
+    g.strokeStyle='rgba(178,142,240,0.95)'; g.lineWidth=2.5; g.strokeRect(h.x,h.y,h.w,h.h);
     g.fillStyle=C.gold; g.font='800 20px Arial'; g.fillText(ready?'HIT':'PITCH ▸',h.x+h.w/2,h.y+h.h/2+1);
   }
 
@@ -932,7 +946,7 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
     if(state!=='PITCH') return; const p=game.pitch;
     const relX=MOUND.x+6, relY=MOUND.y-16;   // pitcher's throwing hand
     // racket sweet-spot reticle, glides with the racket
-    g.strokeStyle='rgba(201,168,76,0.7)'; g.lineWidth=2; g.strokeRect(game.racketX-16,CONTACT_Y-16,32,32);
+    g.strokeStyle='rgba(178,142,240,0.7)'; g.lineWidth=2; g.strokeRect(game.racketX-16,CONTACT_Y-16,32,32);
     if(!p.released){
       g.fillStyle=C.ball; g.beginPath(); g.arc(relX,relY,4,0,7); g.fill();   // ball in the hand
       if(Math.floor(game.t/16)%2===0) ptxt('▶ TAP SPACE TO PITCH',256,300,C.gold,12,'center');
@@ -976,7 +990,7 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
   function drawLinescore(){
     const x0=4, y0=2, BW=W-8, lblW=66, totW=92, colW=(BW-lblW-totW)/9;
     g.fillStyle='rgba(8,9,14,0.86)'; rr(x0,y0,BW,80,5); g.fill();
-    g.strokeStyle='rgba(201,168,76,0.45)'; g.lineWidth=1.5; rr(x0,y0,BW,80,5); g.stroke();
+    g.strokeStyle='rgba(178,142,240,0.45)'; g.lineWidth=1.5; rr(x0,y0,BW,80,5); g.stroke();
     // header: inning numbers + TOTAL
     for(let i=1;i<=9;i++) stxt(''+i, x0+lblW+colW*(i-0.5), y0+10, i===game.inning?C.gold:'rgba(240,232,208,0.55)', 9,'center', i===game.inning);
     stxt('CURRENT', x0+lblW+9*colW+totW/2, y0+9, C.gold, 8,'center');
@@ -1091,7 +1105,7 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
       }
       // deflection / interception cues
       if(f.deflectFx && f.deflectFx.t>0){ const d=f.deflectFx, col=d.col||C.gold;
-        g.strokeStyle=(col===C.red?'rgba(212,69,58,':'rgba(201,168,76,')+(d.t/20)+')'; g.lineWidth=2; g.beginPath(); g.arc(d.x,d.y,(20-d.t)+6,0,7); g.stroke();
+        g.strokeStyle=(col===C.red?'rgba(212,69,58,':'rgba(178,142,240,')+(d.t/20)+')'; g.lineWidth=2; g.beginPath(); g.arc(d.x,d.y,(20-d.t)+6,0,7); g.stroke();
         ptxt(d.label||'DEFLECT!',d.x,d.y-24,col,8,'center'); }
       // outfielder holding: a small green "pizza-slice" cone, tip on the defender, pointing at the
       // net at home — hints the ▾▾ smash direction/range (the smash itself always goes to the net)
@@ -1134,7 +1148,7 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
     if(!r.auto && game.resultTimer<=0 && Math.floor(game.t/16)%2===0) ptxt('▶ TAP / SPACE',256,252,C.gold,9,'center');
   }
   function drawTitle(){ drawBat(); g.fillStyle='rgba(8,9,14,0.84)'; g.fillRect(0,0,W,H);
-    txt('CANADIAN BASEBALL',256,52,C.gold,26,'center'); stxt('SPORT SIMULATOR',256,80,C.cream,14,'center',true);
+    txt('CASTLEBALL',256,52,C.gold,32,'center'); stxt('SPORT SIMULATOR',256,80,C.cream,14,'center',true);
     // ── HOW TO PLAY card ──
     panel(48,100,416,268);
     stxt('HOW  TO  PLAY',256,118,C.gold,13,'center',true);
@@ -1146,7 +1160,7 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
     stxt('•  Drag  —  run the nearest fielder to the ball',86,242,C.cream,11);
     stxt('•  Throw to a base:  ← 3rd   ↑ 2nd   → 1st   ↓ home',86,260,C.cream,11);
     stxt('•  Outfield extra: ↓↓ double-tap = SMASH THE BALL HOME',86,278,C.red,11);
-    g.strokeStyle='rgba(201,168,76,0.25)'; g.lineWidth=1; g.beginPath(); g.moveTo(70,300); g.lineTo(442,300); g.stroke();
+    g.strokeStyle='rgba(178,142,240,0.25)'; g.lineWidth=1; g.beginPath(); g.moveTo(70,300); g.lineTo(442,300); g.stroke();
     stxt('9 innings · Team A (blue) bats, Team B (white) fields — and swap.',256,314,'rgba(240,232,208,0.7)',9.5,'center');
     stxt('Ball outside the net = ball (4 = walk).  Into the net = strike (3 = out).',256,332,'rgba(240,232,208,0.62)',9,'center');
     stxt('Keyboard also works: Space to pitch / swing, arrow keys to move & throw.',256,352,'rgba(240,232,208,0.5)',9,'center');
