@@ -564,8 +564,8 @@
     var swOpt = { dt: 0.002, carryOnly: true, iters: 10 };
     var pits = [], seeds = isRattle ? 3 : 1;
     for (var si = 0; si < seeds; si++) pits.push(pitch(ball, pitchType, speed, env, mode, si + 1, { dt: 0.002 }));
-    var geom0 = pits[0].geom, sw = racketBase.swing != null ? racketBase.swing : 10;
-    for (var m = 250; m <= 1000; m += 5) {
+    var geom0 = pits[0].geom, sw = racketBase.swing != null ? racketBase.swing : 10, step = opts.step || 5;
+    for (var m = 250; m <= 1000; m += step) {
       var rk = Object.assign({}, racketBase, { mass: m, face: 'Auto' });
       var carry = 0;
       for (var pi = 0; pi < pits.length; pi++) {

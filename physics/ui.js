@@ -316,6 +316,26 @@
     } else { var o = E.bestRacket(ball, racketObj(), S.pitch, S.speed, envObj(), S.mode, {}); done(o); }
   }
 
+  function exploreMass() {
+    var ball = normalizeBall(), btn = $('exploreMass'); btn.textContent = 'EXPLORING… 0%';
+    var w = getWorker();
+    function done(o) {
+      btn.textContent = '⇄ EXPLORE BALL MASS (distance vs curve)';
+      R.exploreChart($('racketChart'), o.curve, o.balanced);
+      $('racketWarnings').innerHTML = '<div class="note-line" style="background:rgba(0,105,62,0.2);color:#fff;border:1px solid var(--border)">Balanced ball mass ≈ ' + gOz(o.balanced.mass) + ' — best trade-off of distance and curve for this design.</div>';
+    }
+    if (w) {
+      w.onmessage = function (ev) { if (ev.data.cmd === 'progress') btn.textContent = 'EXPLORING… ' + Math.round(ev.data.pct * 100) + '%'; else if (ev.data.cmd === 'exploreMass') done(ev.data.result); };
+      w.postMessage({ cmd: 'exploreMass', ball: ball, racket: racketObj(), pitchType: S.pitch, speed: S.speed, env: envObj(), mode: S.mode });
+    } else {
+      var curve = [], base = ball;
+      for (var m = 20; m <= 200; m += 20) { var bb = JSON.parse(JSON.stringify(base)); bb.mass = m; var br = E.bestRacket(bb, racketObj(), S.pitch, S.speed, envObj(), S.mode, { step: 25 }); curve.push({ mass: m, carry: br.best.carry, curve: E.curveScore(bb, S.speed, envObj(), S.mode) }); }
+      var cM = 0, kM = 0; curve.forEach(function (p) { cM = Math.max(cM, p.carry); kM = Math.max(kM, p.curve); });
+      var bal = curve[0], gap = 1e9; curve.forEach(function (p) { var gg = Math.abs(p.carry / (cM || 1) - p.curve / (kM || 1)); if (gg < gap) { gap = gg; bal = p; } });
+      done({ curve: curve, balanced: bal });
+    }
+  }
+
   // ── audio (reuse simple beeps; gated by SOUND) ──
   var actx = null;
   function ac() { if (!actx) { try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} } return actx; }
@@ -356,6 +376,7 @@
     $('launch').addEventListener('click', function () { if (ac() && actx.state === 'suspended') actx.resume(); launch(); });
     $('launch10').addEventListener('click', launch10);
     $('findBest').addEventListener('click', findBest);
+    $('exploreMass').addEventListener('click', exploreMass);
     var bm = $('mMusic'), bs = $('mSfx');
     function markAudio() { bs.classList.toggle('off', !S.sfxOn); bm.classList.toggle('off', !S.musicOn); }
     bs.addEventListener('click', function () { S.sfxOn = !S.sfxOn; markAudio(); save(); });

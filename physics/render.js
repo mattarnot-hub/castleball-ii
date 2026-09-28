@@ -242,7 +242,31 @@
     g.fillText('break ' + pit.totalBreak.toFixed(0) + ' cm', cx, h - 6);
   }
 
+  // ── explore-ball-mass trade-off chart (carry + curve vs ball mass) ──
+  function exploreChart(cv, data, balanced) {
+    var f = fit(cv), g = f.g, w = f.w, h = f.h;
+    g.clearRect(0, 0, w, h); g.fillStyle = COL.bg; g.fillRect(0, 0, w, h);
+    if (!data || !data.length) return;
+    var pad = 28, x0 = pad, x1 = w - 8, y0 = h - 18, y1 = 12;
+    var mn = data[0].mass, mx = data[data.length - 1].mass, cMax = 0, kMax = 0;
+    data.forEach(function (p) { cMax = Math.max(cMax, p.carry); kMax = Math.max(kMax, p.curve); });
+    cMax = Math.max(1, cMax); kMax = Math.max(1, kMax);
+    function X(m) { return x0 + (m - mn) / (mx - mn) * (x1 - x0); }
+    function Yc(v) { return y0 - v / cMax * (y0 - y1); }
+    function Yk(v) { return y0 - v / kMax * (y0 - y1); }
+    g.strokeStyle = COL.purpleLt; g.lineWidth = 2; g.beginPath();
+    data.forEach(function (p, i) { i ? g.lineTo(X(p.mass), Yc(p.carry)) : g.moveTo(X(p.mass), Yc(p.carry)); }); g.stroke();
+    g.strokeStyle = COL.grassLt; g.lineWidth = 2; g.beginPath();
+    data.forEach(function (p, i) { i ? g.lineTo(X(p.mass), Yk(p.curve)) : g.moveTo(X(p.mass), Yk(p.curve)); }); g.stroke();
+    if (balanced) { var x = X(balanced.mass); g.strokeStyle = COL.warn; g.setLineDash([3, 3]); g.beginPath(); g.moveTo(x, y1); g.lineTo(x, y0); g.stroke(); g.setLineDash([]);
+      g.fillStyle = COL.warn; g.font = "9px 'Space Mono'"; g.textAlign = 'center'; g.fillText('balanced ' + balanced.mass + 'g', x, y1 + 2); }
+    g.font = "9px 'Space Mono'"; g.textAlign = 'left';
+    g.fillStyle = COL.purpleLt; g.fillText('■ carry vs ball mass', x0, y0 + 14);
+    g.fillStyle = COL.grassLt; g.fillText('■ curve', x0 + 140, y0 + 14);
+  }
+
   root.PhysRender = {
+    exploreChart: exploreChart,
     fit: fit, gOz: gOz, crossSection: crossSection, racketChart: racketChart,
     sprayChart: sprayChart, sideProfile: sideProfile, fieldView: fieldView, pitchView: pitchView, COL: COL
   };

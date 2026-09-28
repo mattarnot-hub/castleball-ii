@@ -9,9 +9,9 @@ self.onmessage = function (ev) {
     self.postMessage({ cmd: 'bestRacket', result: o });
   } else if (d.cmd === 'exploreMass') {
     var out = [], base = d.ball;
-    for (var m = 20; m <= 200; m += 10) {
+    for (var m = 20; m <= 200; m += 20) {                 // coarse ball-mass sweep (fast)
       var ball = JSON.parse(JSON.stringify(base)); ball.mass = m;
-      var br = E.bestRacket(ball, d.racket, d.pitchType, d.speed, d.env, d.mode, {});
+      var br = E.bestRacket(ball, d.racket, d.pitchType, d.speed, d.env, d.mode, { step: 25 });
       var curve = E.curveScore(ball, d.speed, d.env, d.mode);
       out.push({ mass: m, carry: br.best.carry, bestMass: br.best.mass, curve: curve });
       self.postMessage({ cmd: 'progress', pct: (m - 20) / 180 });
