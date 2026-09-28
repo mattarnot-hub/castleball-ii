@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="description" content="CastleBall Game Physics — a browser simulator that predicts how far a batted ball flies and how much a pitch curves, from the ball design and racket you choose.">
+<meta property="og:title" content="CastleBall — Game Physics">
+<title>CastleBall — Game Physics</title>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Bebas+Neue&family=Space+Mono&display=swap" rel="stylesheet">
+<style>
+:root{
+  /* Wimbledon palette — Green #00693E · Purple #4B2882 · White #FFFFFF */
+  --green:#00693E; --green-lt:#2f9e6a; --purple:#4B2882; --purple-lt:#a98be6; --white:#FFFFFF;
+  --gold:#a98be6; --dark:#06140E; --panel:#0B2016; --card:#0E2419; --cream:#FFFFFF;
+  --border:rgba(75,40,130,0.45); --muted:rgba(255,255,255,0.5); --warn:#e8c84a; --bad:#d4453a;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{min-height:100%;}
+body{
+  background:radial-gradient(circle at 50% 0%, #123625 0%, var(--dark) 60%);
+  color:var(--cream); font-family:'Space Mono',monospace;
+  min-height:100vh; overflow-x:hidden; padding:12px 10px 40px;
+  display:flex; flex-direction:column; align-items:center;
+}
+a{color:var(--gold);}
+header{ width:100%; max-width:1100px; display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; margin-bottom:12px; }
+.brand{ display:flex; align-items:center; gap:14px; }
+.logo-img{ height:52px; width:auto; filter:drop-shadow(0 2px 5px rgba(0,0,0,0.55)); }
+.ptitle{ font-family:'Press Start 2P',monospace; font-size:13px; letter-spacing:2px; color:var(--gold); }
+.hbtns{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+.hbtn{ font-family:'Press Start 2P',monospace; font-size:8px; letter-spacing:1px; color:var(--gold);
+  background:#12151c; border:2px solid var(--border); border-radius:6px; padding:8px 10px; cursor:pointer; text-decoration:none; }
+.hbtn.off{ color:#7d7d7d; border-color:#464646; }
+.seg{ display:inline-flex; border:2px solid var(--border); border-radius:6px; overflow:hidden; }
+.seg button{ font-family:'Press Start 2P',monospace; font-size:8px; padding:8px 10px; background:#12151c; color:var(--muted); border:none; cursor:pointer; }
+.seg button.on{ background:var(--purple); color:#fff; }
+
+main{ width:100%; max-width:1100px; display:flex; flex-direction:column; gap:14px; }
+.panels{ display:grid; grid-template-columns:1fr; gap:14px; }
+@media(min-width:900px){ .panels{ grid-template-columns:1fr 1fr; } }
+.card{ background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:14px; }
+.card h2{ font-family:'Press Start 2P',monospace; font-size:11px; letter-spacing:1px; color:var(--gold); margin-bottom:12px; }
+.row{ margin-bottom:12px; }
+.row .lab{ display:flex; justify-content:space-between; align-items:baseline; font-size:11px; font-weight:700; margin-bottom:5px; }
+.row .lab .val{ font-family:'Bebas Neue'; font-size:18px; color:var(--gold); letter-spacing:0.5px; }
+.row .lab .q{ cursor:help; color:var(--muted); border:1px solid var(--muted); border-radius:50%; width:15px; height:15px; display:inline-flex; align-items:center; justify-content:center; font-size:9px; margin-left:6px; }
+input[type=range]{ width:100%; height:6px; -webkit-appearance:none; appearance:none; background:linear-gradient(90deg,var(--purple) var(--pct,50%),#26343c var(--pct,50%)); border-radius:4px; outline:none; }
+input[type=range]::-webkit-slider-thumb{ -webkit-appearance:none; width:22px; height:22px; border-radius:50%; background:var(--purple-lt); border:2px solid #fff; cursor:pointer; }
+input[type=range]::-moz-range-thumb{ width:22px; height:22px; border-radius:50%; background:var(--purple-lt); border:2px solid #fff; cursor:pointer; }
+.ticks{ position:relative; height:12px; font-size:8px; color:var(--muted); }
+.ticks span{ position:absolute; transform:translateX(-50%); white-space:nowrap; }
+.pills{ display:flex; flex-wrap:wrap; gap:6px; }
+.pill{ font-size:10px; padding:7px 10px; border:1px solid var(--border); border-radius:6px; background:var(--card); color:var(--cream); cursor:pointer; }
+.pill.active{ background:var(--purple); border-color:var(--purple-lt); color:#fff; }
+.presets{ display:flex; flex-wrap:wrap; gap:6px; margin-top:6px; }
+.preset{ font-size:9px; padding:6px 8px; border:1px solid var(--green-lt); border-radius:6px; background:transparent; color:var(--green-lt); cursor:pointer; }
+.note-line{ font-size:10px; line-height:1.5; margin-top:6px; padding:7px 9px; border-radius:6px; }
+.note-line.warn{ background:rgba(232,200,74,0.12); color:var(--warn); border:1px solid rgba(232,200,74,0.4); }
+.note-line.bad{ background:rgba(212,69,58,0.12); color:var(--bad); border:1px solid rgba(212,69,58,0.4); }
+canvas.diagram{ width:100%; background:#04100a; border:1px solid var(--border); border-radius:8px; display:block; }
+.simwrap{ position:relative; }
+#sim{ width:100%; background:#04100a; border:1px solid var(--border); border-radius:8px; display:block; touch-action:manipulation; }
+.simbar{ display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-top:10px; }
+.btn{ font-family:'Press Start 2P',monospace; font-size:9px; letter-spacing:1px; padding:12px 14px; border-radius:8px; cursor:pointer; border:2px solid; }
+.btn.launch{ background:var(--purple); border-color:var(--purple-lt); color:#fff; flex:1; min-width:120px; }
+.btn.ten{ background:transparent; border-color:var(--green-lt); color:var(--green-lt); }
+.btn.ghost{ background:#12151c; border-color:var(--border); color:var(--gold); font-size:8px; padding:9px 11px; }
+.drawer{ margin-top:10px; border:1px solid var(--border); border-radius:8px; overflow:hidden; }
+.drawer summary{ list-style:none; cursor:pointer; padding:10px 12px; font-size:10px; color:var(--gold); background:var(--card); }
+.drawer[open] summary{ border-bottom:1px solid var(--border); }
+.drawer .body{ padding:12px; }
+.results{ display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:8px; }
+.stat{ background:var(--card); border:1px solid var(--border); border-radius:8px; padding:9px 10px; }
+.stat .k{ font-size:8px; letter-spacing:1px; color:var(--muted); text-transform:uppercase; }
+.stat .v{ font-family:'Bebas Neue'; font-size:22px; color:var(--gold); line-height:1.1; }
+.stat .v2{ font-size:10px; color:var(--cream); }
+.meter{ margin-top:4px; }
+.meter .bar{ height:12px; background:#26343c; border-radius:6px; overflow:hidden; margin:3px 0; }
+.meter .bar > div{ height:100%; }
+.footnote{ width:100%; max-width:1100px; margin-top:18px; font-size:10px; color:var(--muted); text-align:center; line-height:1.6; }
+select{ font-family:'Space Mono',monospace; background:var(--card); color:var(--cream); border:1px solid var(--border); border-radius:6px; padding:8px; width:100%; font-size:11px; }
+.two{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.tabbar{ display:flex; gap:6px; margin-bottom:8px; flex-wrap:wrap; }
+.tabbar button{ font-size:9px; padding:7px 10px; border:1px solid var(--border); border-radius:6px 6px 0 0; background:var(--card); color:var(--muted); cursor:pointer; }
+.tabbar button.on{ background:var(--purple); color:#fff; }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">
+    <a href="./"><img src="castleball-logo.png" alt="CastleBall" class="logo-img"></a>
+    <span class="ptitle">GAME&nbsp;PHYSICS</span>
+  </div>
+  <div class="hbtns">
+    <div class="seg" id="modeSeg">
+      <button data-mode="outdoor" class="on">OUTDOOR</button>
+      <button data-mode="indoor">INDOOR</button>
+    </div>
+    <button id="mMusic" class="hbtn" type="button">&#9834; MUSIC</button>
+    <button id="mSfx" class="hbtn" type="button">&#128266; SOUND</button>
+    <a href="./" class="hbtn">&#9666; BACK TO GAME</a>
+  </div>
+</header>
+
+<main>
+  <div class="panels">
+    <section class="card" id="ballPanel">
+      <h2>⚾ BALL DESIGN</h2>
+      <div id="ballControls"></div>
+      <canvas class="diagram" id="xsec" width="520" height="240"></canvas>
+      <div class="presets" id="ballPresets"></div>
+      <div id="ballWarnings"></div>
+    </section>
+
+    <section class="card" id="racketPanel">
+      <h2>🎾 RACKET</h2>
+      <div id="racketControls"></div>
+      <button class="btn ghost" id="findBest" style="width:100%;margin-top:4px;">★ FIND BEST RACKET FOR DISTANCE</button>
+      <canvas class="diagram" id="racketChart" width="520" height="150" style="margin-top:10px;"></canvas>
+      <div id="racketWarnings"></div>
+    </section>
+  </div>
+
+  <section class="card">
+    <h2>🏟 SIMULATOR</h2>
+    <div class="tabbar" id="viewTabs">
+      <button data-view="pitch" class="on">PITCH VIEW</button>
+      <button data-view="field">FIELD VIEW</button>
+      <button data-view="side">SIDE PROFILE</button>
+      <button data-view="spray">SPRAY ×10</button>
+    </div>
+    <div class="simwrap"><canvas id="sim" width="720" height="440"></canvas></div>
+    <div class="two" style="margin-top:10px;">
+      <div class="row" style="margin:0;">
+        <div class="lab"><span>Pitch type</span></div>
+        <select id="pitchType"></select>
+      </div>
+      <div class="row" id="pitchSpeedRow" style="margin:0;"></div>
+    </div>
+    <details class="drawer" id="condDrawer">
+      <summary>⚙ CONDITIONS (weather &amp; wind)</summary>
+      <div class="body" id="condBody"></div>
+    </details>
+    <div class="simbar">
+      <button class="btn launch" id="launch">▶ LAUNCH</button>
+      <button class="btn ten" id="launch10">LAUNCH ×10</button>
+      <select id="pitchSel" style="width:auto;flex:0 0 auto;font-size:10px;"></select>
+      <select id="speedSel" style="width:auto;flex:0 0 auto;font-size:10px;"></select>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>📊 LIVE RESULTS</h2>
+    <div class="results" id="results"></div>
+    <div class="meter" id="dvcMeter"></div>
+  </section>
+</main>
+
+<p class="footnote" id="footnote">Physics estimates for design exploration only. Test real equipment and use protective gear before play.</p>
+
+<script src="physics/params.js"></script>
+<script src="physics/engine.js"></script>
+<script src="physics/render.js"></script>
+<script src="physics/ui.js"></script>
+</body>
+</html>
