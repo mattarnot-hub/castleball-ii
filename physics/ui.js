@@ -21,7 +21,7 @@
     racket: { mass: 320, balance: 34, gauge: 1.30, tension: 55, swing: 10, face: 'Auto', faceVal: 20, batter: 'Adult', realistic: true },
     pitch: 'Fastball', speed: 30,
     env: { T: 20, h: 0, RH: 0.5, wind: 0, windDir: 0, roughOrient: 90 },
-    sfxOn: true, musicOn: false
+    sfxOn: true, musicOn: true
   };
   try { var saved = JSON.parse(localStorage.getItem('castleball-physics-v2') || 'null'); if (saved) deepMerge(S, saved); } catch (e) {}
   function deepMerge(a, b) { for (var k in b) { if (b[k] && typeof b[k] === 'object' && !Array.isArray(b[k])) { a[k] = a[k] || {}; deepMerge(a[k], b[k]); } else a[k] = b[k]; } }
@@ -250,31 +250,28 @@
       pitch: pit, batted: bat, geom: geom, landing: bat.landing, rest: bat.rest };
   }
 
-  // ── animation ──
+  // ── animation (timer-driven so it always completes, even if rAF is throttled) ──
   var anim = null;
-  function stopAnim() { if (anim) { cancelAnimationFrame(anim); anim = null; } }
+  function stopAnim() { if (anim) { clearInterval(anim); anim = null; } }
   function launch() {
     stopAnim();
     var ball = normalizeBall();
     var res = hitOnce(ball, seedCtr++);
     lastResult = res;
-    if (res.miss) { beep(160, 0.18, 'sawtooth', 0.05); flash('SWING AND MISS'); S.view = 'pitch'; markTabs(); drawView(); return; }
+    if (res.miss) { beep(160, 0.18, 'sawtooth', 0.05); flash('SWING AND MISS'); S.view = 'pitch'; markTabs(); return; }
     markers.push(res.landing); if (markers.length > 5) markers.shift();
     drawResults(res, res.geom);
-    // play: pitch phase -> contact -> field phase
     S.view = 'pitch'; markTabs();
-    var cv = $('sim'); var t0 = performance.now();
-    var pitchDur = 1400, fieldDur = 2600;
-    stopAnim();
-    function frame(now) {
-      var el = now - t0;
+    var cv = $('sim'), t0 = performance.now(), pitchDur = 1400, fieldDur = 2600;
+    R.pitchView(cv, res, 0, S.mode); animateInnerCrossSection(res, 0);   // instant first frame
+    anim = setInterval(function () {
+      var el = performance.now() - t0;
       try {
-        if (el < pitchDur) { var pr = el / pitchDur; R.pitchView(cv, res, pr, S.mode); animateInnerCrossSection(res, pr); anim = requestAnimationFrame(frame); }
-        else if (el < pitchDur + 120) { R.pitchView(cv, res, 1, S.mode); contactFlash(cv); if (!res._beeped) { res._beeped = true; beep(520, 0.05, 'square', 0.06); if (res.cleared) cheer(); } anim = requestAnimationFrame(frame); }
-        else { if (!res._xr) { res._xr = 1; if (lastGeom) R.crossSection($('xsec'), lastGeom, [0, 0, 0]); } S.view = 'field'; markTabs(); var fp = Math.min(1, (el - pitchDur - 120) / fieldDur); drawFieldProgress(cv, res, fp); if (fp < 1) anim = requestAnimationFrame(frame); else anim = null; }
-      } catch (e) { anim = null; drawView(); }
-    }
-    anim = requestAnimationFrame(frame);
+        if (el < pitchDur) { var pr = el / pitchDur; R.pitchView(cv, res, pr, S.mode); animateInnerCrossSection(res, pr); }
+        else if (el < pitchDur + 140) { R.pitchView(cv, res, 1, S.mode); contactFlash(cv); if (!res._beeped) { res._beeped = true; beep(520, 0.05, 'square', 0.06); if (res.cleared) cheer(); } }
+        else { if (!res._xr) { res._xr = 1; if (lastGeom) R.crossSection($('xsec'), lastGeom, [0, 0, 0]); } S.view = 'field'; markTabs(); var fp = Math.min(1, (el - pitchDur - 140) / fieldDur); drawFieldProgress(cv, res, fp); if (fp >= 1) stopAnim(); }
+      } catch (e) { stopAnim(); drawView(); }
+    }, 33);
   }
   function drawFieldProgress(cv, res, prog) {
     // draw base + partial track
@@ -347,6 +344,27 @@
   function beep(f, d, type, v) { if (!S.sfxOn) return; try { var c = ac(); if (!c) return; var o = c.createOscillator(), a = c.createGain(); o.type = type || 'square'; o.frequency.value = f; o.connect(a); a.connect(c.destination); a.gain.setValueAtTime(v || 0.05, c.currentTime); a.gain.exponentialRampToValueAtTime(0.0001, c.currentTime + d); o.start(); o.stop(c.currentTime + d); } catch (e) {} }
   function cheer() { if (!S.sfxOn) return; try { var c = ac(); if (!c) return; var n = c.sampleRate * 1.2, buf = c.createBuffer(1, n, c.sampleRate), dd = buf.getChannelData(0); for (var i = 0; i < n; i++) dd[i] = Math.random() * 2 - 1; var s = c.createBufferSource(); s.buffer = buf; var bp = c.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 1200; var g = c.createGain(); g.gain.setValueAtTime(0.0001, c.currentTime); g.gain.linearRampToValueAtTime(0.18, c.currentTime + 0.15); g.gain.exponentialRampToValueAtTime(0.0001, c.currentTime + 1.2); s.connect(bp); bp.connect(g); g.connect(c.destination); s.start(); s.stop(c.currentTime + 1.2); } catch (e) {} }
 
+  // ── background music: "Take Me Out to the Ball Game" (melody only), same as the game ──
+  var musicStarted = false, musicNext = 0, musicStep = 0, audioUnlocked = false;
+  var N = { C4: 261.63, D4: 293.66, E4: 329.63, F4: 349.23, Fs4: 369.99, G4: 392, Gs4: 415.30, A4: 440, B4: 493.88, C5: 523.25, D5: 587.33 };
+  var SONG = [
+    [N.C4, 2], [N.C5, 1], [N.A4, 1], [N.G4, 1], [N.E4, 1], [N.G4, 3], [N.D4, 3],
+    [N.C4, 2], [N.C5, 1], [N.A4, 1], [N.G4, 1], [N.E4, 1], [N.G4, 3], [N.G4, 3],
+    [N.A4, 1], [N.Gs4, 1], [N.A4, 1], [N.E4, 1], [N.F4, 1], [N.G4, 1], [N.A4, 2], [N.F4, 1], [N.D4, 3],
+    [N.A4, 2], [N.A4, 1], [N.A4, 1], [N.B4, 1], [N.C5, 1], [N.D5, 1], [N.B4, 1], [N.A4, 1], [N.G4, 1], [N.E4, 1], [N.D4, 1],
+    [N.C4, 2], [N.C5, 1], [N.A4, 1], [N.G4, 1], [N.E4, 1], [N.G4, 3],
+    [N.D4, 2], [N.D4, 1], [N.C4, 2], [N.D4, 1], [N.E4, 1], [N.F4, 1], [N.G4, 1], [N.A4, 3],
+    [0, 1], [N.A4, 1], [N.B4, 1], [N.C5, 3], [N.C5, 3], [N.C5, 1], [N.B4, 1], [N.A4, 1], [N.G4, 1], [N.Fs4, 1], [N.G4, 1], [N.A4, 3],
+    [N.B4, 3], [N.C5, 3], [N.C5, 3]
+  ];
+  function mnote(freq, t, dur, type, vol) { if (!freq || !actx) return; var o = actx.createOscillator(), a = actx.createGain(); o.type = type; o.frequency.setValueAtTime(freq, t); a.gain.setValueAtTime(0.0001, t); a.gain.linearRampToValueAtTime(vol, t + 0.012); a.gain.exponentialRampToValueAtTime(0.0001, t + dur); o.connect(a); a.connect(actx.destination); o.start(t); o.stop(t + dur + 0.03); }
+  function musicScheduler() { if (!actx) return; if (!S.musicOn) { musicNext = actx.currentTime; return; }
+    var beat = 60 / 170;
+    while (musicNext < actx.currentTime + 0.4) { var nt = SONG[musicStep % SONG.length], dur = nt[1] * beat; if (nt[0]) mnote(nt[0], musicNext, dur * 0.9, 'square', 0.07); musicNext += dur; musicStep++; } }
+  function startMusic() { var c = ac(); if (!c) return; if (c.state !== 'running') c.resume();
+    if (!audioUnlocked) { audioUnlocked = true; try { var b = c.createBufferSource(); b.buffer = c.createBuffer(1, 1, 22050); b.connect(c.destination); b.start(0); } catch (e) {} }
+    if (!musicStarted) { musicStarted = true; musicNext = c.currentTime + 0.15; musicStep = 0; setInterval(musicScheduler, 60); } }
+
   // ── tabs / mode / pitch controls ──
   function markTabs() { [].forEach.call($('viewTabs').children, function (b) { b.classList.toggle('on', b.dataset.view === S.view); }); }
   function markMode() { [].forEach.call($('modeSeg').children, function (b) { b.classList.toggle('on', b.dataset.mode === S.mode); }); }
@@ -378,14 +396,17 @@
     markMode(); markTabs(); applyMode();
     [].forEach.call($('modeSeg').children, function (b) { b.addEventListener('click', function () { S.mode = b.dataset.mode; markMode(); applyMode(); buildSim(); refreshAll(); apply(); }); });
     [].forEach.call($('viewTabs').children, function (b) { b.addEventListener('click', function () { stopAnim(); S.view = b.dataset.view; markTabs(); drawView(); }); });
-    $('launch').addEventListener('click', function () { if (ac() && actx.state === 'suspended') actx.resume(); launch(); });
-    $('launch10').addEventListener('click', launch10);
+    $('launch').addEventListener('click', function () { startMusic(); launch(); });
+    $('launch10').addEventListener('click', function () { startMusic(); launch10(); });
+    // start (and unlock) audio on the first interaction anywhere
+    var kick = function () { startMusic(); window.removeEventListener('pointerdown', kick); window.removeEventListener('keydown', kick); };
+    window.addEventListener('pointerdown', kick); window.addEventListener('keydown', kick);
     $('findBest').addEventListener('click', findBest);
     $('exploreMass').addEventListener('click', exploreMass);
     var bm = $('mMusic'), bs = $('mSfx');
     function markAudio() { bs.classList.toggle('off', !S.sfxOn); bm.classList.toggle('off', !S.musicOn); }
     bs.addEventListener('click', function () { S.sfxOn = !S.sfxOn; markAudio(); save(); });
-    bm.addEventListener('click', function () { S.musicOn = !S.musicOn; markAudio(); save(); });
+    bm.addEventListener('click', function () { S.musicOn = !S.musicOn; markAudio(); save(); startMusic(); });
     markAudio();
     window.addEventListener('resize', function () { if (lastGeom) R.crossSection($('xsec'), lastGeom, [0, 0, 0]); drawView(); });
     recompute();

@@ -79,6 +79,9 @@ canvas.diagram{ width:100%; background:#04100a; border:1px solid var(--border); 
 .meter .bar{ height:12px; background:#26343c; border-radius:6px; overflow:hidden; margin:3px 0; }
 .meter .bar > div{ height:100%; }
 .footnote{ width:100%; max-width:1100px; margin-top:18px; font-size:10px; color:var(--muted); text-align:center; line-height:1.6; }
+.crest-footer{ width:100%; display:flex; flex-direction:column; align-items:center; gap:10px; margin-top:26px; padding-top:26px; border-top:1px solid var(--border); }
+.crest-footer img{ height:230px; width:auto; filter:drop-shadow(0 3px 12px rgba(0,0,0,0.5)); }
+.crest-footer span{ font-family:'Press Start 2P',monospace; font-size:7px; letter-spacing:2px; color:var(--muted); }
 select{ font-family:'Space Mono',monospace; background:var(--card); color:var(--cream); border:1px solid var(--border); border-radius:6px; padding:8px; width:100%; font-size:11px; }
 .two{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
 .tabbar{ display:flex; gap:6px; margin-bottom:8px; flex-wrap:wrap; }
@@ -159,6 +162,11 @@ select{ font-family:'Space Mono',monospace; background:var(--card); color:var(--
 </main>
 
 <p class="footnote" id="footnote">Physics estimates for design exploration only. Test real equipment and use protective gear before play.</p>
+
+<footer class="crest-footer">
+  <img src="castleball-crest.png" alt="CastleBall — Kids' League crest, est. 2026">
+  <span>OFFICIAL CASTLEBALL · KIDS' LEAGUE · EST. 2026</span>
+</footer>
 
 <script src="physics/params.js"></script>
 <script src="physics/engine.js"></script>

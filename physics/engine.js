@@ -342,44 +342,53 @@
     var pit = P.pitches[pitchType] || P.pitches.Fastball;
     var omega = (env.customRpm != null && pitchType === 'Custom' ? env.customRpm : pit.rpm) * 2 * Math.PI / 60;
 
-    // aim a spinless drag-only ball to cross x=0 at (plateY,0): shoot for launch angle & small z
-    function shootRef(vy0, vz0) {
-      var dir = unit([-1, 0, 0]); // toward home
-      var v0 = [-speedMps, vy0, vz0];
-      return integrate(release, v0, { geom: geom, rho: rho, dt: dtP, spin0: [0, 0, 0], wind: [0, 0, 0], stopX: 0, stopY: -50, maxT: 3 });
-    }
-    // iterate vy0 so the spinless ball reaches plateY at x=0 (secant)
-    var vy = 2.0, vz = 0.0;
-    for (var it = 0; it < 12; it++) {
-      var r0 = shootRef(vy, vz);
-      var yc = r0.crossed ? r0.crossed[1] : plateY;
-      var err = yc - plateY;
-      if (Math.abs(err) < 0.005) break;
-      var r1 = shootRef(vy + 0.3, vz);
-      var yc1 = r1.crossed ? r1.crossed[1] : plateY;
-      var slope = (yc1 - yc) / 0.3 || 1;
-      vy -= err / slope;
-    }
-    var refCross = shootRef(vy, vz).crossed || [0, plateY, 0];
-
     // spin vector for the real pitch (ball travels -x)
     var spin = spinVector(pitchType, omega, env);
     var roughDir = ext_hasAsym(geom.ext) ? roughStart(env) : null;
     var noise = pitchType === 'Drifter' ? smoothNoise((seed || 1) * 2654435761 % 2147483647) : null;
-    var real = integrate(release, [-speedMps, vy, vz], {
-      geom: geom, rho: rho, dt: dtP,
-      spin0: spin, wind: windVec, roughDir: roughDir, noise: noise, stopX: 0, stopY: -50, maxT: 3
-    });
+    // aim the REAL (spinning) pitch so it crosses x=0 at (plateY, ~0): a pitcher aims the actual pitch
+    function shootReal(vy0) {
+      return integrate(release, [-speedMps, vy0, 0], { geom: geom, rho: rho, dt: dtP, spin0: spin, wind: windVec, roughDir: roughDir, noise: noise, stopX: 0, stopY: -50, maxT: 3 });
+    }
+    var vy = 2.0;
+    for (var it = 0; it < 12; it++) {
+      var r0 = shootReal(vy);
+      var yc = r0.crossed ? r0.crossed[1] : plateY;
+      var err = yc - plateY;
+      if (Math.abs(err) < 0.004) break;
+      var r1 = shootReal(vy + 0.3);
+      var yc1 = r1.crossed ? r1.crossed[1] : plateY;
+      var slope = (yc1 - yc) / 0.3 || 1;
+      vy -= err / slope;
+    }
+    var real = shootReal(vy);
     var realCross = real.crossed || [0, plateY, 0];
+    // spinless reference: SAME release velocity, no spin/wind — the break is real minus this
+    var ref = integrate(release, [-speedMps, vy, 0], { geom: geom, rho: rho, dt: dtP, spin0: [0, 0, 0], wind: [0, 0, 0], stopX: 0, stopY: -50, maxT: 3 });
+    var refCross = ref.crossed || [0, plateY, 0];
     var breakH = (realCross[2] - refCross[2]) * 100; // cm (z)
     var breakV = (realCross[1] - refCross[1]) * 100; // cm (y)
 
-    // late break: break accrued over the last 5 m
-    var lateH = 0, lateV = 0;
+    // late break = how far the pitch deviates in the last 5 m from a gravity-aware straight-line
+    // extrapolation at that point (curvature the batter can't read early). Small for a fastball,
+    // large for a curve/slider that accelerates late.
+    var lateBreak = 0;
+    for (var i = 1; i < real.samples.length; i++) {
+      var pa = real.samples[i - 1].p, pb = real.samples[i].p;
+      if ((pa[0] - 5) * (pb[0] - 5) <= 0 && pa[0] !== pb[0]) {
+        var f = (5 - pa[0]) / (pb[0] - pa[0]);
+        var p5 = [5, pa[1] + (pb[1] - pa[1]) * f, pa[2] + (pb[2] - pa[2]) * f];
+        var v5 = real.samples[i].v, vxa = Math.abs(v5[0]) || 1, dt5 = 5 / vxa;
+        var yExp = p5[1] + v5[1] * dt5 - 0.5 * P.g * dt5 * dt5;
+        var zExp = p5[2] + v5[2] * dt5;
+        lateBreak = Math.sqrt(Math.pow((realCross[1] - yExp) * 100, 2) + Math.pow((realCross[2] - zExp) * 100, 2));
+        break;
+      }
+    }
     return {
       geom: geom, rho: rho, arrivalV: real.v, arrivalP: realCross, spin: spin,
       breakH: breakH, breakV: breakV, totalBreak: Math.sqrt(breakH * breakH + breakV * breakV),
-      lateBreak: Math.abs(breakV) * 0.4, trajectory: real.samples, refCross: refCross,
+      lateBreak: lateBreak, trajectory: real.samples, refCross: refCross,
       timeToPlate: real.t, speed: speedMps,
       innerTrack: (opts.innerTrack && geom.core === 'Rattle') ? rattleInnerTrack(real.samples, geom, spin, seed) : null
     };
