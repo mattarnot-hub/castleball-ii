@@ -18,7 +18,7 @@
     ball: { mass: 145, d: 74, core: 'Hard', ext: 'Seamed', roughOrient: 90,
       layered: { shellMm: 1.5, shellMat: 'TPU', memMm: 3.5, memMat: 'Custom', memDensity: 2.3 },
       rattle: { shellMm: 1.5, shellMat: 'TPU', memMm: 3.5, memMat: 'TPU', innerMm: 20, innerMat: 'Steel' } },
-    racket: { mass: 320, balance: 34, gauge: 1.30, tension: 55, swing: 10, face: 'Auto', faceVal: 20, batter: 'Adult', realistic: true },
+    racket: { mass: 320, balance: 34, gauge: 1.30, tension: 55, swing: 10, face: 'Auto', faceVal: 20, batter: 'Adult', realistic: true, cut: 0 },
     pitch: 'Fastball', speed: 30,
     env: { T: 20, h: 0, RH: 0.5, wind: 0, windDir: 0, roughOrient: 90 },
     sfxOn: true, musicOn: true
@@ -121,10 +121,13 @@
     reg2(selector(c, { label: 'String gauge', options: [{ value: 1.20, label: '1.20 mm' }, { value: 1.25, label: '1.25 mm' }, { value: 1.30, label: '1.30 mm' }, { value: 1.35, label: '1.35 mm' }, { value: 1.40, label: '1.40 mm' }, { value: 1.50, label: '1.50 mm' }], get: function () { return S.racket.gauge; }, set: function (v) { S.racket.gauge = parseFloat(v); } }));
     reg2(slider(c, { label: 'String tension', min: 40, max: 70, step: 1, help: 'Tighter strings feel firmer; looser strings trampoline more.', get: function () { return S.racket.tension; }, set: function (v) { S.racket.tension = v; }, fmt: function (v) { return v + ' lb'; } }));
     reg2(slider(c, { label: 'Swing path (up angle)', min: 0, max: 30, step: 1, help: 'How steeply up the racket is moving through contact.', get: function () { return S.racket.swing; }, set: function (v) { S.racket.swing = v; }, fmt: function (v) { return v + '°'; } }));
+    reg2(slider(c, { label: 'Side-cut (bend)', min: -30, max: 30, step: 1, help: 'Cut across the ball to curve the hit in flight; 0 = dead centre.',
+      get: function () { return S.racket.cut || 0; }, set: function (v) { S.racket.cut = v; },
+      fmt: function (v) { return v === 0 ? '0° · straight' : (v > 0 ? '+' + v + '° · bends right' : v + '° · bends left'); } }));
     reg2(toggle(c, { label: 'Face angle: Auto', get: function () { return S.racket.face === 'Auto'; }, set: function (v) { S.racket.face = v ? 'Auto' : S.racket.faceVal; buildRacket(); } }));
     if (S.racket.face !== 'Auto') reg2(slider(c, { label: 'Face angle', min: -10, max: 45, step: 1, help: 'Open (positive) tilts the face up for more loft and backspin.', get: function () { return S.racket.faceVal; }, set: function (v) { S.racket.faceVal = v; S.racket.face = v; }, fmt: function (v) { return v + '°'; } }));
     reg2(pills(c, { label: 'Batter strength', options: ['Kid', 'Teen', 'Adult', 'Pro'], get: function () { return S.racket.batter; }, set: function (v) { S.racket.batter = v; } }));
-    reg2(toggle(c, { label: 'Realistic batter (timing/contact error)', get: function () { return S.racket.realistic; }, set: function (v) { S.racket.realistic = v; } }));
+    reg2(toggle(c, { label: 'Realistic batter (LAUNCH ×10 spray only)', get: function () { return S.racket.realistic; }, set: function (v) { S.racket.realistic = v; } }));
   }
 
   function buildPresets() {
@@ -227,23 +230,35 @@
   var seedCtr = 1;
   function rand(seed) { var x = Math.sin(seed * 99991) * 10000; return x - Math.floor(x); }
   function gauss(seed) { var u = rand(seed) || 1e-6, v = rand(seed + 7.13); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); }
-  function hitOnce(ball, seed) {
+  // forceClean = a single LAUNCH: always solid contact, ball driven DEAD CENTRE, with a
+  // controllable side-cut bend. The realistic (miss/spray) path is only used by LAUNCH ×10.
+  function hitOnce(ball, seed, forceClean) {
     var geom = E.ballGeom(ball), env = envObj();
     var pit = E.pitch(ball, S.pitch, S.speed, env, S.mode, seed, { innerTrack: geom.core === 'Rattle' });
     var face = S.racket.face === 'Auto' ? E.bestFace(pit, geom, racketObj(), env, S.mode, {}) : S.racket.faceVal;
-    var spray = 0, sweet = 0, faceTilt = 0, miss = false;
-    if (S.racket.realistic) {
+    var clean = forceClean || !S.racket.realistic;
+    var spray = 0, sweet = 0, faceTilt = 0;
+    if (!clean) {
       var er = P.batterErr[S.racket.batter];
       var tMs = gauss(seed) * er.timing * 1000; spray = tMs * 1.5;               // 1.5° per ms
-      var vErr = gauss(seed + 2.1) * (er.vert + 0.3 * (pit.lateBreak / 100));    // late break makes it harder
-      sweet = gauss(seed + 3.3) * er.sweet / 100;                                // m
-      if (Math.abs(vErr) > geom.r + 0.01) miss = true;
+      var vErr = gauss(seed + 2.1) * (er.vert + 0.3 * (pit.lateBreak / 100));
+      sweet = gauss(seed + 3.3) * er.sweet / 100;
+      if (Math.abs(vErr) > geom.r + 0.01) return { miss: true, pitch: pit, geom: geom };
       faceTilt = Math.asin(Math.max(-1, Math.min(1, vErr / (geom.r + 0.01)))) * 180 / Math.PI;
     }
-    if (miss) return { miss: true, pitch: pit, geom: geom };
     var col = E.collide(pit.arrivalV, pit.spin, geom, racketObj(), face + faceTilt, S.racket.swing, spray, sweet);
+    var vOut, wOut;
+    if (clean) {
+      // drive the ball straight to centre field at the collision's exit speed & launch angle,
+      // then add a side-cut spin so it BENDS only if you cut across it.
+      var sp = col.exitSpeed, la = col.launchDeg * Math.PI / 180;
+      vOut = [sp * Math.cos(la), sp * Math.sin(la), 0];
+      var back = col.backspinRpm * 2 * Math.PI / 60;                              // z-axis backspin = lift
+      var side = (S.racket.cut || 0) * 9.0;                                        // y-axis spin = horizontal bend
+      wOut = [0, side, back];
+    } else { vOut = col.vOut; wOut = col.wOut; }
     var surface = S.mode === 'indoor' ? 'Gym hardwood' : 'Outfield grass';
-    var bat = E.battedFlight(col.vOut, col.wOut, geom, env, surface, { indoor: S.mode === 'indoor' });
+    var bat = E.battedFlight(vOut, wOut, geom, env, surface, { indoor: S.mode === 'indoor' });
     return { carry: bat.carry, total: bat.total, apex: bat.apex, hang: bat.hang, cleared: bat.cleared,
       exitSpeed: col.exitSpeed, launch: col.launchDeg, backspin: col.backspinRpm, bottomed: col.bottomed,
       totalBreak: pit.totalBreak, timeToPlate: pit.timeToPlate, faceUsed: face, densityFactor: geom.densityFactor,
@@ -256,9 +271,8 @@
   function launch() {
     stopAnim();
     var ball = normalizeBall();
-    var res = hitOnce(ball, seedCtr++);
+    var res = hitOnce(ball, seedCtr++, true);   // single launch: always a clean, centred hit
     lastResult = res;
-    if (res.miss) { beep(160, 0.18, 'sawtooth', 0.05); flash('SWING AND MISS'); S.view = 'pitch'; markTabs(); return; }
     markers.push(res.landing); if (markers.length > 5) markers.shift();
     drawResults(res, res.geom);
     S.view = 'pitch'; markTabs();
