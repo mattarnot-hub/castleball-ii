@@ -236,6 +236,15 @@
     var bp = traj[Math.min(upto, traj.length - 1)].p; var q3 = proj(bp);
     g.fillStyle = COL.ball; g.beginPath(); g.arc(q3.x, q3.y, q3.s, 0, 7); g.fill();
     g.strokeStyle = '#c00'; g.lineWidth = 1; g.beginPath(); g.arc(q3.x, q3.y, q3.s, 0, 7); g.stroke();
+    // Rattle: draw the loose inner ball at its current offset inside the shell
+    if (result.geom && result.geom.core === 'Rattle' && pit.innerTrack) {
+      var it = pit.innerTrack, idx = Math.min(it.length - 1, Math.max(0, Math.floor(prog * (it.length - 1))));
+      var off = it[idx], pxper = q3.s / result.geom.r;
+      var ix = q3.x + off[2] * pxper, iy = q3.y - off[1] * pxper;
+      var ir = Math.max(2, q3.s * (result.geom.innerR / result.geom.r));
+      g.fillStyle = '#4b2882'; g.beginPath(); g.arc(ix, iy, ir, 0, 7); g.fill();
+      g.strokeStyle = '#fff'; g.lineWidth = 1; g.stroke();
+    }
     // batter silhouette
     g.fillStyle = '#3a2668'; g.fillRect(cx + 46, groundY - 74, 12, 74); g.beginPath(); g.arc(cx + 52, groundY - 82, 9, 0, 7); g.fill();
     g.fillStyle = COL.muted; g.font = "9px 'Space Mono'"; g.textAlign = 'center';

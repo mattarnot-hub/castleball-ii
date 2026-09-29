@@ -229,7 +229,7 @@
   function gauss(seed) { var u = rand(seed) || 1e-6, v = rand(seed + 7.13); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); }
   function hitOnce(ball, seed) {
     var geom = E.ballGeom(ball), env = envObj();
-    var pit = E.pitch(ball, S.pitch, S.speed, env, S.mode, seed);
+    var pit = E.pitch(ball, S.pitch, S.speed, env, S.mode, seed, { innerTrack: geom.core === 'Rattle' });
     var face = S.racket.face === 'Auto' ? E.bestFace(pit, geom, racketObj(), env, S.mode, {}) : S.racket.faceVal;
     var spray = 0, sweet = 0, faceTilt = 0, miss = false;
     if (S.racket.realistic) {
@@ -269,9 +269,9 @@
     function frame(now) {
       var el = now - t0;
       try {
-        if (el < pitchDur) { R.pitchView(cv, res, el / pitchDur, S.mode); anim = requestAnimationFrame(frame); }
+        if (el < pitchDur) { var pr = el / pitchDur; R.pitchView(cv, res, pr, S.mode); animateInnerCrossSection(res, pr); anim = requestAnimationFrame(frame); }
         else if (el < pitchDur + 120) { R.pitchView(cv, res, 1, S.mode); contactFlash(cv); if (!res._beeped) { res._beeped = true; beep(520, 0.05, 'square', 0.06); if (res.cleared) cheer(); } anim = requestAnimationFrame(frame); }
-        else { S.view = 'field'; markTabs(); var fp = Math.min(1, (el - pitchDur - 120) / fieldDur); drawFieldProgress(cv, res, fp); if (fp < 1) anim = requestAnimationFrame(frame); else anim = null; }
+        else { if (!res._xr) { res._xr = 1; if (lastGeom) R.crossSection($('xsec'), lastGeom, [0, 0, 0]); } S.view = 'field'; markTabs(); var fp = Math.min(1, (el - pitchDur - 120) / fieldDur); drawFieldProgress(cv, res, fp); if (fp < 1) anim = requestAnimationFrame(frame); else anim = null; }
       } catch (e) { anim = null; drawView(); }
     }
     anim = requestAnimationFrame(frame);
@@ -281,6 +281,11 @@
     var full = res.batted.samples, n = Math.max(2, Math.floor(prog * full.length));
     var partial = { batted: { samples: full.slice(0, n) }, landing: res.landing, rest: res.rest, carry: res.carry, total: res.total, cleared: prog >= 1 ? res.cleared : false };
     R.fieldView(cv, prog >= 0.999 ? res : partial, S.mode, markers);
+  }
+  function animateInnerCrossSection(res, prog) {
+    if (!res.geom || res.geom.core !== 'Rattle' || !res.pitch || !res.pitch.innerTrack) return;
+    var it = res.pitch.innerTrack, idx = Math.min(it.length - 1, Math.max(0, Math.floor(prog * (it.length - 1))));
+    R.crossSection($('xsec'), res.geom, it[idx]);
   }
   function contactFlash(cv) { var f = R.fit(cv), g = f.g; g.fillStyle = 'rgba(255,255,255,0.5)'; g.fillRect(0, 0, f.w, f.h); }
   function flash(msg) { var cv = $('sim'), f = R.fit(cv), g = f.g; R.pitchView(cv, lastResult, 1, S.mode); g.fillStyle = 'rgba(0,0,0,0.5)'; g.fillRect(0, f.h / 2 - 22, f.w, 44); g.fillStyle = '#e8c84a'; g.font = "bold 16px 'Press Start 2P'"; g.textAlign = 'center'; g.fillText(msg, f.w / 2, f.h / 2 + 6); }

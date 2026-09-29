@@ -40,6 +40,40 @@
     };
   }
 
+  // ── Rattle inner-ball path (for the animation): a loose heavy ball inside the shell's cavity.
+  // Driven, in the shell's frame, by the pseudo-force from the shell's aero deceleration, plus
+  // gravity-cancelled contact, restitution and spin friction at the wall. Returns per-sample offsets. ──
+  function rattleInnerTrack(samples, geom, spin, seed) {
+    var Rmax = geom.cavityR - geom.innerR;
+    if (Rmax <= 0 || samples.length < 2) return null;
+    var rnd = mulberry32(((seed || 1) * 40503) >>> 0);
+    var er = P.rattle.er, mur = P.rattle.mu_r;
+    var sm = mag(spin), sd = sm > 1e-9 ? unit(spin) : [0, 0, 1];
+    var wx = sd[0] * sm, wy = sd[1] * sm, wz = sd[2] * sm;
+    var px = 0, py = 0, pz = 0, vx = 0, vy = 0, vz = 0;
+    var track = [[0, 0, 0]];
+    for (var i = 1; i < samples.length; i++) {
+      var dt = samples[i].t - samples[i - 1].t; if (dt <= 0 || dt > 0.05) dt = 0.008;
+      var va = samples[i - 1].v, vb = samples[i].v;
+      var aax = (vb[0] - va[0]) / dt, aay = (vb[1] - va[1]) / dt + P.g, aaz = (vb[2] - va[2]) / dt; // aero accel (gravity removed)
+      vx -= aax * dt; vy -= aay * dt; vz -= aaz * dt;                 // pseudo-force = -aero
+      px += vx * dt; py += vy * dt; pz += vz * dt;
+      var d = Math.sqrt(px * px + py * py + pz * pz);
+      if (d > Rmax) {
+        var nx = px / d, ny = py / d, nz = pz / d;
+        var vn = vx * nx + vy * ny + vz * nz;
+        if (vn > 0) { vx -= (1 + er) * vn * nx; vy -= (1 + er) * vn * ny; vz -= (1 + er) * vn * nz; }
+        px = nx * Rmax; py = ny * Rmax; pz = nz * Rmax;
+        // shell surface velocity at the contact point = ω × p, drag the inner ball toward it
+        var svx = wy * pz - wz * py, svy = wz * px - wx * pz, svz = wx * py - wy * px;
+        vx += (svx - vx) * mur * 0.5; vy += (svy - vy) * mur * 0.5; vz += (svz - vz) * mur * 0.5;
+        vx += (rnd() - 0.5) * 0.4; vy += (rnd() - 0.5) * 0.4; vz += (rnd() - 0.5) * 0.4; // chaotic nudge
+      }
+      track.push([px, py, pz]);
+    }
+    return track;
+  }
+
   // ── air density from conditions ──
   function airDensity(env) {
     var T = env.T, h = env.h, RH = env.RH;
@@ -346,7 +380,8 @@
       geom: geom, rho: rho, arrivalV: real.v, arrivalP: realCross, spin: spin,
       breakH: breakH, breakV: breakV, totalBreak: Math.sqrt(breakH * breakH + breakV * breakV),
       lateBreak: Math.abs(breakV) * 0.4, trajectory: real.samples, refCross: refCross,
-      timeToPlate: real.t, speed: speedMps
+      timeToPlate: real.t, speed: speedMps,
+      innerTrack: (opts.innerTrack && geom.core === 'Rattle') ? rattleInnerTrack(real.samples, geom, spin, seed) : null
     };
   }
   function ext_hasAsym(extName) { return (P.exteriors[extName] || {}).Casym > 0; }
