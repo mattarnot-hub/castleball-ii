@@ -5,10 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#08090E">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="description" content="CastleBall — Interactive rules configurator for the new hybrid sport.">
-<meta property="og:title" content="CastleBall — Rules Configurator">
-<meta property="og:description" content="Design your own variant of CastleBall. Toggle rules, pick your ball type, adjust scoring.">
-<title>CastleBall — Rules Configurator</title>
+<meta name="description" content="CastleBall — the official Standard Rules, plus an experimental variant designer.">
+<meta property="og:title" content="CastleBall — Rules">
+<meta property="og:description" content="The simplified CastleBall rulebook: baseball you know, plus the Castle Gate. An experimental sandbox lets you design your own variant.">
+<title>CastleBall — Rules</title>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Serif+Display:ital@0;1&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
 <style>
 :root {
@@ -418,6 +418,89 @@ input[type=range]::-webkit-slider-thumb {
   opacity:0; pointer-events:none; transition:all 0.15s; z-index:99;
 }
 
+/* ── VIEW SWITCHER ── */
+.view-nav {
+  position: sticky; top: 56px; z-index: 90;
+  display: flex; gap: 8px;
+  background: rgba(8,9,14,0.96); backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+  padding: 10px 16px;
+}
+.view-tab {
+  font-family:'Bebas Neue'; font-size:16px; letter-spacing:2px;
+  padding: 7px 18px; border-radius:6px; cursor:pointer; text-align:left;
+  border:1px solid var(--border); background:transparent; color:var(--muted);
+  transition: all .15s; line-height:1.15;
+}
+.view-tab.active { background:var(--gold-dim); border-color:var(--gold); color:var(--gold); }
+.view-tab:hover:not(.active) { color:var(--cream); border-color:rgba(169,139,230,0.45); }
+.view-tab .vt-sub {
+  display:block; font-family:'Space Mono'; font-size:8px; letter-spacing:1px;
+  color:var(--muted); margin-top:3px; text-transform:uppercase;
+}
+
+/* ── EXPERIMENTAL BANNER ── */
+.exp-banner {
+  display:flex; align-items:center; gap:12px;
+  background: linear-gradient(135deg, rgba(192,57,43,0.12), rgba(169,139,230,0.10));
+  border-bottom:1px solid rgba(192,57,43,0.3);
+  padding:12px 20px; font-size:11px; line-height:1.6; color:var(--cream);
+}
+.exp-banner .ico { font-size:22px; flex-shrink:0; }
+.exp-banner strong { color:#e07a6a; }
+
+/* ── STANDARD RULEBOOK ── */
+.rulebook { max-width: 900px; margin: 0 auto; padding: 36px 20px 48px; }
+.rb-hero { text-align:center; margin-bottom: 8px; }
+.rb-kicker { font-family:'Space Mono'; font-size:10px; letter-spacing:4px; color:var(--gold); text-transform:uppercase; }
+.rb-title { font-family:'Bebas Neue'; font-size:48px; letter-spacing:5px; color:var(--cream); line-height:1; margin:10px 0 14px; }
+.rb-tag { font-size:13px; color:var(--muted); line-height:1.8; max-width:640px; margin:0 auto; }
+.rb-section { margin-top: 34px; }
+.rb-section-head {
+  font-family:'Bebas Neue'; font-size:24px; letter-spacing:3px; color:var(--gold);
+  display:flex; align-items:center; gap:10px; margin-bottom:14px;
+  padding-bottom:8px; border-bottom:1px solid var(--border);
+}
+.rb-section-head .n { font-family:'Space Mono'; font-size:11px; color:var(--muted); border:1px solid var(--border); padding:3px 8px; border-radius:3px; }
+.rb-cards { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+.rb-card {
+  background:var(--card); border:1px solid var(--border); border-left:3px solid var(--gold);
+  border-radius:4px; padding:16px 18px;
+}
+.rb-card.full { grid-column: 1 / -1; }
+.rb-card .rc-name {
+  font-family:'Bebas Neue'; font-size:18px; letter-spacing:1.5px; color:var(--cream);
+  display:flex; align-items:center; gap:9px; margin-bottom:7px;
+}
+.rb-card .rc-name .e { font-size:18px; }
+.rb-card .rc-desc { font-size:12px; line-height:1.75; color:var(--muted); }
+.rb-card .rc-desc b { color:var(--gold); font-weight:700; }
+.rb-card.out { border-left-color:#C0392B; }
+.rb-card.out .rc-desc b { color:#e07a6a; }
+.rb-card.gate { background:linear-gradient(135deg, rgba(192,57,43,0.09), transparent); }
+.rb-card.def { border-left-color:var(--green-light); }
+.rb-card.def .rc-desc b { color:var(--green-light); }
+
+.rb-note {
+  background:var(--card2); border:1px dashed var(--border); border-radius:4px;
+  padding:14px 18px; font-size:11px; color:var(--muted); line-height:1.75; margin-top:12px;
+}
+.rb-note b { color:var(--green-light); }
+
+.score-simple { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+.score-box { background:var(--card); border:1px solid var(--border); border-radius:6px; padding:22px 18px; text-align:center; }
+.score-box .big { font-family:'Bebas Neue'; font-size:56px; color:var(--gold); line-height:1; }
+.score-box .lbl { font-family:'Bebas Neue'; font-size:19px; letter-spacing:2px; color:var(--cream); margin-top:6px; }
+.score-box .sub { font-size:11px; color:var(--muted); margin-top:8px; line-height:1.65; }
+.score-box .sub b { color:var(--gold); }
+
+@media (max-width: 640px) {
+  .rb-cards { grid-template-columns:1fr; }
+  .score-simple { grid-template-columns:1fr; }
+  .rb-title { font-size:38px; }
+  .view-tab { font-size:14px; padding:7px 13px; }
+}
+
 /* scrollbar */
 ::-webkit-scrollbar { width:4px; }
 ::-webkit-scrollbar-track { background:transparent; }
@@ -428,11 +511,126 @@ input[type=range]::-webkit-slider-thumb {
 
 <header>
   <div class="logo"><img src="castleball-logo.png" alt="CastleBall" class="logo-img"></div>
-  <div class="header-badge">Rules Configurator</div>
+  <div class="header-badge">Official Rulebook</div>
   <a href="./" class="play-btn" onclick="savePoints()">🎮 PLAY THE GAME →</a>
   <div class="version-tag">v2.0 · Live Spec</div>
 </header>
 
+<!-- ══ VIEW SWITCHER ══════════════════════════════════════════════════════════ -->
+<nav class="view-nav">
+  <button class="view-tab active" id="vt-standard" onclick="showView('standard')">📖 Standard Rules<span class="vt-sub">The official rulebook</span></button>
+  <button class="view-tab" id="vt-experimental" onclick="showView('experimental')">🧪 Experimental Rules<span class="vt-sub">Sandbox · variant designer</span></button>
+</nav>
+
+<!-- ══ STANDARD RULES VIEW ════════════════════════════════════════════════════ -->
+<main id="view-standard" class="view">
+  <div class="rulebook">
+
+    <div class="rb-hero">
+      <div class="rb-kicker">CastleBall · Official Rulebook</div>
+      <div class="rb-title">STANDARD RULES</div>
+      <div class="rb-tag">CastleBall keeps the familiar rhythm of baseball — three strikes, four balls, three outs — then adds the Castle Gate and a few bold twists to make it faster, fairer, and far more fun to watch.</div>
+    </div>
+
+    <!-- 1 · GAME FLOW -->
+    <section class="rb-section">
+      <div class="rb-section-head"><span class="n">01</span> How a Game Flows</div>
+      <div class="rb-cards">
+        <div class="rb-card">
+          <div class="rc-name"><span class="e">⚾</span> Strikes &amp; Balls</div>
+          <div class="rc-desc"><b>Three strikes</b> and you're out. <b>Four balls</b> and you take your base — just like baseball.</div>
+        </div>
+        <div class="rb-card">
+          <div class="rc-name"><span class="e">🔁</span> Three Outs</div>
+          <div class="rc-desc"><b>Three outs</b> retire the side and end the half-inning. Teams then switch between batting and fielding.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 2 · WAYS TO GET OUT -->
+    <section class="rb-section">
+      <div class="rb-section-head"><span class="n">02</span> Ways to Get Out</div>
+      <div class="rb-cards">
+        <div class="rb-card out">
+          <div class="rc-name"><span class="e">🧤</span> Caught in the Air</div>
+          <div class="rc-desc">A fly ball <b>caught before it bounces</b> is an out — anywhere on the field.</div>
+        </div>
+        <div class="rb-card out">
+          <div class="rc-name"><span class="e">🏃</span> Tagged Out</div>
+          <div class="rc-desc">A baserunner <b>tagged with the ball before reaching a base</b> is out.</div>
+        </div>
+        <div class="rb-card out">
+          <div class="rc-name"><span class="e">⚡</span> Beaten to the Base</div>
+          <div class="rc-desc">If a <b>clean throw beats the runner</b> to the base, the runner is out.</div>
+        </div>
+        <div class="rb-card out gate">
+          <div class="rc-name"><span class="e">🏰</span> Gate Beats You Home</div>
+          <div class="rc-desc">If the ball <b>crosses the Castle Gate line before you touch home plate</b>, you're out. The defense can "gate" a runner trying to score.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3 · HIT BY THE BALL -->
+    <section class="rb-section">
+      <div class="rb-section-head"><span class="n">03</span> Hit by the Ball</div>
+      <div class="rb-cards">
+        <div class="rb-card full">
+          <div class="rc-name"><span class="e">🚫</span> Running Into the Pitch</div>
+          <div class="rc-desc">A batter who <b>runs into the ball</b> — moving into the pitch rather than being hit by it — is <b>not</b> awarded a walk. No free base for leaning in.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4 · RACKETS -->
+    <section class="rb-section">
+      <div class="rb-section-head"><span class="n">04</span> Rackets — Default Setup</div>
+      <div class="rb-cards">
+        <div class="rb-card def full">
+          <div class="rc-name"><span class="e">🎾</span> Defense Plays Without Rackets</div>
+          <div class="rc-desc">In the standard game, the <b>defense does not carry rackets</b>. Fielding is done with gloves and hands, like baseball. (Racket-carrying defense is an experimental variant only.)</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 5 · DEFLECTION ZONE -->
+    <section class="rb-section">
+      <div class="rb-section-head"><span class="n">05</span> The 6 ft Deflection Zone</div>
+      <div class="rb-cards">
+        <div class="rb-card full">
+          <div class="rc-name"><span class="e">↩️</span> Outfield Deflection Only</div>
+          <div class="rc-desc">Within <b>6 ft of their base</b>, a runner may <b>deflect a teammate's hit into the outfield</b> — but only while <b>touching the base</b> at the moment of the deflection.</div>
+        </div>
+      </div>
+      <div class="rb-note">⚠ <b>No immunity.</b> The deflection zone redirects a teammate's hit into open outfield only. It does <b>not</b> protect the runner from defensive throws aimed to get them out — the runner stays live and can still be thrown out or tagged.</div>
+    </section>
+
+    <!-- 6 · SCORING -->
+    <section class="rb-section">
+      <div class="rb-section-head"><span class="n">06</span> Scoring — Kept Simple</div>
+      <div class="score-simple">
+        <div class="score-box">
+          <div class="big">1</div>
+          <div class="lbl">RUN · REACH HOME</div>
+          <div class="sub">Every runner who completes the circuit and touches home plate scores one run.</div>
+        </div>
+        <div class="score-box">
+          <div class="big">2</div>
+          <div class="lbl">RUNS · HOME RUN</div>
+          <div class="sub">A home run scores the batter's run <b>plus one bonus run</b>. Teammates already on base each score their own run as usual.</div>
+        </div>
+      </div>
+      <div class="rb-note">No point tables, no zone multipliers — just runs. <b>Reach home, score. Clear the wall, score an extra.</b></div>
+    </section>
+
+  </div>
+</main>
+
+<!-- ══ EXPERIMENTAL RULES VIEW ════════════════════════════════════════════════ -->
+<div id="view-experimental" class="view" style="display:none;">
+  <div class="exp-banner">
+    <span class="ico">⚗️</span>
+    <div><strong>Experimental sandbox.</strong> Mix and match variant rules to explore what CastleBall could become. These toggles are for design exploration only — they do <strong>not</strong> change the Standard Rules and do <strong>not</strong> affect Play the Game.</div>
+  </div>
 <div class="app-shell">
 
   <!-- ══ SIDEBAR ══════════════════════════════════════════════════════════ -->
@@ -754,7 +952,8 @@ input[type=range]::-webkit-slider-thumb {
 
     </div>
   </main>
-</div>
+</div><!-- /.app-shell -->
+</div><!-- /#view-experimental -->
 
 <footer class="crest-footer">
   <img src="castleball-crest.png" alt="CastleBall — Kids' League crest, est. 2026">
@@ -808,10 +1007,10 @@ function setSlider(key, val) {
   render();
 }
 
-// Persist scoring so the video game reads it (same-origin localStorage bridge).
-function savePoints() {
-  try { localStorage.setItem('castleball-points-v2', JSON.stringify(state.sliders)); } catch (e) {}
-}
+// The experimental sandbox is intentionally isolated from Play the Game.
+// Previously this persisted scoring to localStorage for the game to read; that
+// bridge is disabled so experimental variants do NOT affect the live game.
+function savePoints() { /* no-op — experimental rules do not influence Play the Game */ }
 
 // ── TAB ─────────────────────────────────────────────────────────────────────
 function switchTab(id) {
@@ -1382,6 +1581,17 @@ function render() {
 }
 
 render();
+
+// ── VIEW SWITCHER (Standard Rules ⇄ Experimental sandbox) ─────────────────────
+function showView(v) {
+  var on = v === 'experimental';
+  document.getElementById('view-standard').style.display     = on ? 'none'  : 'block';
+  document.getElementById('view-experimental').style.display = on ? 'block' : 'none';
+  document.getElementById('vt-standard').classList.toggle('active', !on);
+  document.getElementById('vt-experimental').classList.toggle('active', on);
+  if (on) render();           // redraw the field SVG when the sandbox is shown
+  window.scrollTo(0, 0);
+}
 
 // ── SIDEBAR COLLAPSIBLE — runs once at page load ──────────────────────────────
 (function() {
