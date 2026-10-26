@@ -494,6 +494,15 @@ input[type=range]::-webkit-slider-thumb {
 .score-box .sub { font-size:11px; color:var(--muted); margin-top:8px; line-height:1.65; }
 .score-box .sub b { color:var(--gold); }
 
+/* standard-view field visualization */
+.rb-field { margin-top: 26px; }
+.rb-field .field-wrap { max-width: 680px; margin: 0 auto; }
+.rb-field-cap {
+  text-align:center; font-size:11px; color:var(--muted); line-height:1.7;
+  max-width:640px; margin:12px auto 0;
+}
+.rb-field-cap b { color:var(--gold); }
+
 @media (max-width: 640px) {
   .rb-cards { grid-template-columns:1fr; }
   .score-simple { grid-template-columns:1fr; }
@@ -530,6 +539,16 @@ input[type=range]::-webkit-slider-thumb {
       <div class="rb-kicker">CastleBall · Official Rulebook</div>
       <div class="rb-title">STANDARD RULES</div>
       <div class="rb-tag">CastleBall keeps the familiar rhythm of baseball — three strikes, four balls, three outs — then adds the Castle Gate and a few bold twists to make it faster, fairer, and far more fun to watch.</div>
+    </div>
+
+    <!-- LIVE FIELD VISUALIZATION (standard setup) -->
+    <div class="rb-field">
+      <div class="field-wrap">
+        <svg id="field-svg-standard" viewBox="0 0 680 660" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:680px;">
+          <!-- rendered by JS -->
+        </svg>
+      </div>
+      <div class="rb-field-cap">The CastleBall field — standard setup: a soccer-size <b>Castle Gate</b> behind home, <b>6 ft deflection zones</b> at each base, and the <b>gate out-line</b> that can beat you home.</div>
     </div>
 
     <!-- 1 · GAME FLOW -->
@@ -1054,8 +1073,10 @@ function buildHash() {
 }
 
 // ── FIELD SVG ────────────────────────────────────────────────────────────────
-function renderField() {
-  const svg = document.getElementById('field-svg');
+function renderField(targetId, runsMode) {
+  const svg = document.getElementById(targetId || 'field-svg');
+  if (!svg) return;
+  const RUNS = !!runsMode;   // true = label scoring as RUNS (Standard Rules), not points
   const nw = netWidths[state.pills.net];
 
   // ── GEOMETRY ──────────────────────────────────────────────────────────────
@@ -1136,7 +1157,7 @@ function renderField() {
   const nmLblR = nmIn + nmW/2;
   const noMansZone = `
     <path d="${nmPath}" fill="rgba(169,139,230,0.10)" stroke="rgba(169,139,230,0.35)" stroke-width="1" stroke-dasharray="4,3"/>
-    <text x="${cx}" y="${hY - nmLblR - 4}" text-anchor="middle" fill="#a98be6" font-size="9" font-family="Space Mono" opacity="0.85">NO MAN'S LAND · ${state.sliders.nomans} pts</text>`;
+    <text x="${cx}" y="${hY - nmLblR - 4}" text-anchor="middle" fill="#a98be6" font-size="9" font-family="Space Mono" opacity="0.85">${RUNS ? "NO MAN'S LAND" : "NO MAN'S LAND · " + state.sliders.nomans + " pts"}</text>`;
 
   // ── BALL ─────────────────────────────────────────────────────────────────
   const ballColors = { dodgeball:'#E74C3C', pickleball:'#F1C40F', tennis:'#AADD00', baseball:'#F5F5F5', nerf:'#FF6B35', golf:'#F5F5DC', blitzball:'#3AB4F2' };
@@ -1323,7 +1344,7 @@ function renderField() {
     <!-- ── OUTFIELD WALL LABEL ── -->
     <text x="${cx}" y="${wCY + 18}" text-anchor="middle"
       fill="#a98be6" font-size="9" font-family="Space Mono" opacity="0.55">
-      OUTFIELD WALL — HR: L ${state.sliders.hrLeft} · C ${state.sliders.hrCenter} · R ${state.sliders.hrRight} pts
+      ${RUNS ? "OUTFIELD WALL — HOME RUN = 2 RUNS" : "OUTFIELD WALL — HR: L " + state.sliders.hrLeft + " · C " + state.sliders.hrCenter + " · R " + state.sliders.hrRight + " pts"}
     </text>
 
     <!-- ── NO MAN'S LAND ZONE ── -->
@@ -1361,18 +1382,18 @@ function renderField() {
     <rect x="${SECO.x-10}" y="${SECO.y-10}" width="20" height="20"
       fill="white" stroke="#a98be6" stroke-width="2" rx="1"/>
     <text x="${SECO.x}" y="${SECO.y - 16}" text-anchor="middle"
-      fill="#a98be6" font-size="9" font-family="Space Mono">2ND · ${state.sliders.second}pts</text>
+      fill="#a98be6" font-size="9" font-family="Space Mono">${RUNS ? "2ND" : "2ND · " + state.sliders.second + "pts"}</text>
 
     <!-- 1st base -->
     <rect x="${FIRS.x-10}" y="${FIRS.y-10}" width="20" height="20"
       fill="white" stroke="#a98be6" stroke-width="2" rx="1"/>
-    <text x="${FIRS.x+28}" y="${FIRS.y+4}" fill="#a98be6" font-size="9" font-family="Space Mono">1ST · ${state.sliders.first}pts</text>
+    <text x="${FIRS.x+28}" y="${FIRS.y+4}" fill="#a98be6" font-size="9" font-family="Space Mono">${RUNS ? "1ST" : "1ST · " + state.sliders.first + "pts"}</text>
 
     <!-- 3rd base -->
     <rect x="${THIR.x-10}" y="${THIR.y-10}" width="20" height="20"
       fill="white" stroke="#a98be6" stroke-width="2" rx="1"/>
     <text x="${THIR.x-28}" y="${THIR.y+4}" text-anchor="end"
-      fill="#a98be6" font-size="9" font-family="Space Mono">3RD · ${state.sliders.third}pts</text>
+      fill="#a98be6" font-size="9" font-family="Space Mono">${RUNS ? "3RD" : "3RD · " + state.sliders.third + "pts"}</text>
 
     <!-- ── THROW-TO-FIRST LINE ── -->
     ${throwFirstLine}
@@ -1384,7 +1405,7 @@ function renderField() {
     <polygon points="${HOME.x},${HOME.y-13} ${HOME.x-11},${HOME.y} ${HOME.x-11},${HOME.y+11} ${HOME.x+11},${HOME.y+11} ${HOME.x+11},${HOME.y}"
       fill="white" stroke="#a98be6" stroke-width="2"/>
     <text x="${HOME.x}" y="${HOME.y+26}" text-anchor="middle"
-      fill="#a98be6" font-size="9" font-family="Space Mono">${state.sliders.home} pts</text>
+      fill="#a98be6" font-size="9" font-family="Space Mono">${RUNS ? "1 RUN" : state.sliders.home + " pts"}</text>
 
     <!-- ── BATTER ── -->
     ${batter}
@@ -1403,7 +1424,7 @@ function renderField() {
     ${offRacketNote}
 
     <!-- ── LABELS ── -->
-    <text x="16" y="650" fill="#a98be6" font-size="8" font-family="Space Mono" opacity="0.4">CASTLEBALL · VARIANT #${buildHash()}</text>
+    <text x="16" y="650" fill="#a98be6" font-size="8" font-family="Space Mono" opacity="0.4">${RUNS ? "CASTLEBALL · STANDARD RULES" : "CASTLEBALL · VARIANT #" + buildHash()}</text>
     <text x="664" y="650" text-anchor="end" fill="${state.toggles.mixedLeague?'#4A9EDD':'transparent'}" font-size="8" font-family="Space Mono">⚡ MIXED 50/50</text>
   `;
 }
@@ -1580,7 +1601,29 @@ function render() {
   document.getElementById('variant-id').textContent = buildHash();
 }
 
+// ── STANDARD-RULES FIELD ──────────────────────────────────────────────────────
+// The Standard Rules view shows the SAME live field, but locked to the official
+// setup (defense without rackets, Gate out-line, 6ft zones) and labelled in RUNS.
+const STANDARD_FIELD = {
+  toggles: { defRackets:false, netSmashOut:false, catcherTagDouble:false, throwToFirstOut:true,
+             offRackets:true, deflectFromBase:true, footOnBase:true, deflectOpenTerritory:true,
+             netLineCrossout:true, catchOut:true, mixedLeague:false },
+  pills:   { ball:'dodgeball', net:'soccer' }
+};
+function renderStandardField() {
+  const snapT = Object.assign({}, state.toggles);
+  const snapP = Object.assign({}, state.pills);
+  Object.assign(state.toggles, STANDARD_FIELD.toggles);
+  Object.assign(state.pills,   STANDARD_FIELD.pills);
+  try { renderField('field-svg-standard', true); }
+  finally {
+    Object.assign(state.toggles, snapT);
+    Object.assign(state.pills,   snapP);
+  }
+}
+
 render();
+renderStandardField();
 
 // ── VIEW SWITCHER (Standard Rules ⇄ Experimental sandbox) ─────────────────────
 function showView(v) {
