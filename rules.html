@@ -551,9 +551,20 @@ input[type=range]::-webkit-slider-thumb {
       <div class="rb-field-cap">The CastleBall field — standard setup: a soccer-size <b>Castle Gate</b> behind home, <b>6 ft deflection zones</b> at each base, and the <b>gate out-line</b> that can beat you home.</div>
     </div>
 
-    <!-- 1 · GAME FLOW -->
+    <!-- 1 · MATCHUPS -->
     <section class="rb-section">
-      <div class="rb-section-head"><span class="n">01</span> How a Game Flows</div>
+      <div class="rb-section-head"><span class="n">01</span> Same-Gender Matchups</div>
+      <div class="rb-cards">
+        <div class="rb-card full">
+          <div class="rc-name"><span class="e">🆚</span> Woman vs Woman · Man vs Man</div>
+          <div class="rc-desc"><b>Female batters face female pitchers, and male batters face male pitchers.</b> Teams alternate through the order so women and men share the same field, the same game, and the same spotlight.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 2 · GAME FLOW -->
+    <section class="rb-section">
+      <div class="rb-section-head"><span class="n">02</span> How a Game Flows</div>
       <div class="rb-cards">
         <div class="rb-card">
           <div class="rc-name"><span class="e">⚾</span> Strikes &amp; Balls</div>
@@ -568,7 +579,7 @@ input[type=range]::-webkit-slider-thumb {
 
     <!-- 2 · WAYS TO GET OUT -->
     <section class="rb-section">
-      <div class="rb-section-head"><span class="n">02</span> Ways to Get Out</div>
+      <div class="rb-section-head"><span class="n">03</span> Ways to Get Out</div>
       <div class="rb-cards">
         <div class="rb-card out">
           <div class="rc-name"><span class="e">🧤</span> Caught in the Air</div>
@@ -584,14 +595,25 @@ input[type=range]::-webkit-slider-thumb {
         </div>
         <div class="rb-card out gate">
           <div class="rc-name"><span class="e">🏰</span> Gate Beats You Home</div>
-          <div class="rc-desc">If the ball <b>crosses the Castle Gate line before you touch home plate</b>, you're out. The defense can "gate" a runner trying to score.</div>
+          <div class="rc-desc">If the ball <b>crosses the Castle Gate line before you touch home plate</b>, you're out. The defense can "gate" a runner trying to score. But if the ball <b>strikes the runner</b> on the way, the runner is <b>safe at home</b>.</div>
         </div>
       </div>
     </section>
 
-    <!-- 3 · HIT BY THE BALL -->
+    <!-- 4 · BASERUNNING -->
     <section class="rb-section">
-      <div class="rb-section-head"><span class="n">03</span> Hit by the Ball</div>
+      <div class="rb-section-head"><span class="n">04</span> Run Either Way</div>
+      <div class="rb-cards">
+        <div class="rb-card full">
+          <div class="rc-name"><span class="e">🔄</span> Clockwise or Counter-Clockwise</div>
+          <div class="rc-desc">A batter may round the bases <b>clockwise or counter-clockwise</b> — their choice. It is the one twist CastleBall adds to standard baserunning; reach home either way to score.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 5 · HIT BY THE BALL -->
+    <section class="rb-section">
+      <div class="rb-section-head"><span class="n">05</span> Hit by the Ball</div>
       <div class="rb-cards">
         <div class="rb-card full">
           <div class="rc-name"><span class="e">🚫</span> Running Into the Pitch</div>
@@ -602,7 +624,7 @@ input[type=range]::-webkit-slider-thumb {
 
     <!-- 4 · RACKETS -->
     <section class="rb-section">
-      <div class="rb-section-head"><span class="n">04</span> Rackets — Default Setup</div>
+      <div class="rb-section-head"><span class="n">06</span> Rackets — Default Setup</div>
       <div class="rb-cards">
         <div class="rb-card def full">
           <div class="rc-name"><span class="e">🎾</span> Defense Plays Without Rackets</div>
@@ -613,7 +635,7 @@ input[type=range]::-webkit-slider-thumb {
 
     <!-- 5 · DEFLECTION ZONE -->
     <section class="rb-section">
-      <div class="rb-section-head"><span class="n">05</span> The 6 ft Deflection Zone</div>
+      <div class="rb-section-head"><span class="n">07</span> The 6 ft Deflection Zone</div>
       <div class="rb-cards">
         <div class="rb-card full">
           <div class="rc-name"><span class="e">↩️</span> Outfield Deflection Only</div>
@@ -625,7 +647,7 @@ input[type=range]::-webkit-slider-thumb {
 
     <!-- 6 · SCORING -->
     <section class="rb-section">
-      <div class="rb-section-head"><span class="n">06</span> Scoring — Kept Simple</div>
+      <div class="rb-section-head"><span class="n">08</span> Scoring — Kept Simple</div>
       <div class="score-simple">
         <div class="score-box">
           <div class="big">1</div>
@@ -661,6 +683,14 @@ input[type=range]::-webkit-slider-thumb {
         <span class="locked-tag">🔒 FIXED</span><button class="section-toggle open" onclick="event.stopPropagation(); sectionToggle(this)" aria-label="Toggle section">▾</button></div>
       <div style="font-size:10px; color:var(--muted); line-height:1.7;">
         Baseball diamond geometry, base distances, pitcher's mound position, foul lines, and outfield dimensions are permanent and cannot be modified. These form the immutable skeleton of CastleBall.
+      </div>
+    </div>
+
+    <!-- MATCHUPS (core) -->
+    <div class="sidebar-section">
+      <div class="sidebar-section-title">Matchups <span class="locked-tag">🔒 CORE</span><button class="section-toggle open" onclick="event.stopPropagation(); sectionToggle(this)" aria-label="Toggle section">▾</button></div>
+      <div style="font-size:11px; color:var(--cream); line-height:1.7; border-left:3px solid var(--gold); padding-left:10px;">
+        <b>Female batters face female pitchers, and male batters face male pitchers.</b> This is the heart of CastleBall — women and men share the same field, the same game and the same spotlight, with teams alternating through the order.
       </div>
     </div>
 
@@ -762,13 +792,22 @@ input[type=range]::-webkit-slider-thumb {
       </div>
     </div>
 
+    <!-- BASERUNNING (core) -->
+    <div class="sidebar-section">
+      <div class="sidebar-section-title">Baserunning <span class="locked-tag">🔒 CORE</span><button class="section-toggle open" onclick="event.stopPropagation(); sectionToggle(this)" aria-label="Toggle section">▾</button></div>
+      <div style="font-size:11px; color:var(--cream); line-height:1.7;">
+        <b>Two-way running.</b> A runner may go <b>clockwise or counter-clockwise</b>, and each runner tracks their own direction. The instant they bolt off the base their direction <b>locks in</b>, and they must complete the full circuit that way — their lead-off direction usually makes the choice obvious.
+        <div style="margin-top:8px;"><b>Two per base.</b> A base can hold <b>up to two runners</b> at once, so multiple unidirectional runners may share a base — but never more than two.</div>
+      </div>
+    </div>
+
     <!-- OUT LOGIC -->
     <div class="sidebar-section">
       <div class="sidebar-section-title">Out Logic <span class="tag">Toggles</span><button class="section-toggle open" onclick="event.stopPropagation(); sectionToggle(this)" aria-label="Toggle section">▾</button></div>
       <div class="toggle-row" onclick="toggle('netLineCrossout')">
         <div class="toggle-label">
           <div class="name">Net-line cross = out at home</div>
-          <div class="desc">Ball crossing the Gate line before runner tags home = runner out. Replaces collision logic.</div>
+          <div class="desc">Ball crossing the Gate line before runner tags home = runner out. Replaces collision logic. If the ball strikes the runner instead, the runner is safe at home.</div>
         </div>
         <button class="toggle-switch on" id="t-netLineCrossout"></button>
       </div>
@@ -862,7 +901,7 @@ input[type=range]::-webkit-slider-thumb {
       <div class="toggle-row" onclick="toggle('mixedLeague')">
         <div class="toggle-label">
           <div class="name">Mixed league (50/50)</div>
-          <div class="desc">Rosters must be 50% men / 50% women. Minimum 4 of each gender on field at all times.</div>
+          <div class="desc">Rosters must be 50% men / 50% women. Minimum 4 of each gender on field at all times. Female batters face female pitchers; male batters face male pitchers.</div>
         </div>
         <button class="toggle-switch on" id="t-mixedLeague"></button>
       </div>
@@ -1460,7 +1499,7 @@ function renderRules() {
     { key: 'deflectFromBase', text: 'Within 6ft of their base, a runner may deflect a teammate\'s hit into the outfield. This is an offensive outfield redirect only — does NOT protect the runner from defensive throws or racket plays aimed to get them out.', cond: t.offRackets ? '' : '⚠ Requires offense rackets' },
     { key: 'footOnBase', text: 'One foot must be on the base at the moment of deflection. Runner remains live and can be thrown out — the zone grants no defensive immunity.', cond: t.deflectFromBase ? '' : '⚠ Deflection zone off' },
     { key: 'deflectOpenTerritory', text: 'Deflected ball must travel into the outfield — open, unoccupied territory. Cannot be used to interfere with a defensive play. Interference call = runner out.', cond: t.deflectFromBase ? '' : '⚠ Deflection zone off' },
-    { key: 'netLineCrossout', text: 'Ball crossing the Gate line before runner tags home = runner is OUT. Replaces collision logic.' },
+    { key: 'netLineCrossout', text: 'Ball crossing the Gate line before runner tags home = runner is OUT. Replaces collision logic. If the ball strikes the runner instead, the runner is safe at home.' },
     { key: 'catchOut', text: 'Ball caught in the air before hitting ground = batter immediately out. Standard rule.' },
     { key: 'mixedLeague', text: 'Rosters 50% men / 50% women. Min. 4 of each on field at all times. All positions open to all genders.' },
 
