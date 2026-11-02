@@ -60,7 +60,8 @@ header {
 .logo span { color: var(--cream); font-size:18px; }
 .logo-img { height:46px; width:auto; display:block; filter:drop-shadow(0 2px 5px rgba(0,0,0,0.55)); }
 .crest-footer { width:100%; display:flex; flex-direction:column; align-items:center; gap:10px; padding:30px 16px 36px; border-top:1px solid var(--border); background:var(--dark); }
-.crest-footer img { height:220px; width:auto; filter:drop-shadow(0 3px 12px rgba(0,0,0,0.5)); }
+.crest-footer img { height:190px; width:auto; filter:drop-shadow(0 3px 12px rgba(0,0,0,0.5)); }
+.crest-row { display:flex; align-items:center; justify-content:center; gap:30px; flex-wrap:wrap; }
 .crest-footer span { font-family:'Space Mono',monospace; font-size:10px; letter-spacing:2px; color:var(--muted); }
 .header-badge {
   font-size:10px; letter-spacing:3px; color:var(--gold);
@@ -1014,8 +1015,11 @@ input[type=range]::-webkit-slider-thumb {
 </div><!-- /#view-experimental -->
 
 <footer class="crest-footer">
-  <img src="castleball-crest.png" alt="CastleBall — Kids' League crest, est. 2026">
-  <span>OFFICIAL CASTLEBALL · KIDS' LEAGUE · EST. 2026</span>
+  <div class="crest-row">
+    <img src="castleball-crest.png" alt="CastleBall Kids' League crest, est. 2026">
+    <img src="castleball-crest-adult.webp" alt="CastleBall Adult League crest, est. 2026">
+  </div>
+  <span>Official CastleBall Kids' &amp; Adult League EST. 2026</span>
 </footer>
 
 <script>
