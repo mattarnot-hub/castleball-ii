@@ -221,14 +221,14 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
     balls:0, strikes:0, outs:0,
     racketX:BOX_C, swung:false,
     pitch:null, ptimer:0,
-    bases:[false,false,false],
+    bases:[[],[],[]], runSel:1,
     result:null, resultTimer:0, lastView:'bat',
     field:null, baseFlash:0, netFlash:0, shake:0, t:0, msg:''
   };
 
   function resetGame(){
     Object.assign(game,{teams:{A:{pts:0,runs:0},B:{pts:0,runs:0}}, line:{}, half:'top', inning:1,
-      balls:0,strikes:0,outs:0, racketX:BOX_C, bases:[false,false,false], result:null, field:null}); state='TITLE';
+      balls:0,strikes:0,outs:0, racketX:BOX_C, bases:[[],[],[]], runSel:1, result:null, field:null}); state='TITLE';
   }
   // ── teams / scoring ──
   function battingTeam(){ return game.half==='top'?'A':'B'; }
@@ -240,7 +240,7 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
   function newBatter(){ game.balls=0; game.strikes=0; }
 
   function newPitch(){
-    game.swung=false; game.result=null; game.field=null;
+    game.swung=false; game.result=null; game.field=null; game.runSel=1;   // default: run classic (to 1st)
     const strike = Math.random()<0.78;
     // pitcher can target ANY x: inside the box = hittable strike, outside = ball
     const tx = strike ? (RACKET_MIN+6 + Math.random()*(RACKET_MAX-RACKET_MIN-12))
@@ -269,8 +269,8 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
       return;
     }
     if(state==='PITCH'){
-      if(code==='left') game.racketX=Math.max(RACKET_MIN, game.racketX-26);    // tap/touch nudge
-      else if(code==='right') game.racketX=Math.min(RACKET_MAX, game.racketX+26);
+      if(code==='left'){ game.racketX=Math.max(RACKET_MIN, game.racketX-26); game.runSel=-1; }    // tap/touch nudge · ◂ = run to 3rd
+      else if(code==='right'){ game.racketX=Math.min(RACKET_MAX, game.racketX+26); game.runSel=1; } // ▸ = run to 1st
       else if(code==='swing'){
         if(!game.pitch.released){ game.pitch.released=true; game.ptimer=14; beep(190,0.08,'square',0.05); } // human throws
         else doSwing();
@@ -364,9 +364,13 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
   function addBall(){   // pitch passed OUTSIDE the net — a ball (count sticks)
     game.balls++; beep(360,0.06);
     if(game.balls>=4){   // 4 balls = WALK: batter to 1st, forced runners pushed up (loaded -> a run scores)
-      const b=game.bases;
-      if(b[0]){ if(b[1]){ if(b[2]) score(1); b[2]=true; } b[1]=true; }
-      b[0]=true; game.baseFlash=16; newBatter();
+      const b=game.bases, rm=(a,v)=>{const i=a.indexOf(v); if(i>=0)a.splice(i,1);};   // walk pushes only classic (ccw) runners
+      const c0=b[0].includes(1), c1=b[1].includes(1), c2=b[2].includes(1);
+      if(c0&&c1&&c2){ rm(b[2],1); score(1); }                   // loaded (ccw) -> 3rd scores
+      if(c0&&c1){ rm(b[1],1); if(b[2].length<2) b[2].push(1); } // 2nd -> 3rd
+      if(c0){ rm(b[0],1); if(b[1].length<2) b[1].push(1); }     // 1st -> 2nd
+      if(b[0].length<2) b[0].push(1);                           // batter -> 1st
+      game.baseFlash=16; newBatter();
       banner({label:'WALK · BATTER TO 1ST',col:C.cream,pts:0});
     } else miniBanner('BALL  '+game.balls+' / 4', C.blue, 0);
   }
@@ -382,6 +386,14 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
   // base index: 0=home, 1=1st, 2=2nd, 3=3rd, 4=home(score)
   function basePos(b){ return b===1?FB1 : b===2?FB2 : b===3?FB3 : FHOME; }
   function baseName(b){ return b===1?'1ST' : b===2?'2ND' : b===3?'3RD' : 'HOME'; }
+  // ── bidirectional base running ──────────────────────────────────────
+  // Base index: 0=home, 1=1st, 2=2nd, 3=3rd, 4=home (score).
+  // dir +1 = CLASSIC counter-clockwise (home->1st->2nd->3rd->home).
+  // dir -1 = CLOCKWISE (home->3rd->2nd->1st->home) — chosen when ◂ was the last input before contact.
+  function nextBase(b,dir){ if(dir<0) return b===0?3:b===3?2:b===2?1:b===1?4:b;
+                                   return b===0?1:b===1?2:b===2?3:b===3?4:b; }
+  function firstBase(dir){ return dir<0?3:1; }
+  function moving(r){ return r.to!==r.from && !r.out; }
 
   function startField(timing,missFrac,dir){
     game.lastView='field'; beep(540,0.06,'square',0.07);
@@ -398,15 +410,14 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
     const land = (95 + depth*95)|0;
     const hitSpeed = Math.hypot(rad/land, peak*Math.PI/land);   // batted-ball launch speed (px/frame)
     const fielders = FORM_KEYS.map(k=>({x:FORM[k].x, y:FORM[k].y}));
-    // ── force-advancing runners (treat every hit as a single) ──
-    const pre = game.bases.slice();         // [1st,2nd,3rd] occupied
-    const R=[]; const mk=(from,to,bat)=>R.push({from,to,prog:0,isBatter:!!bat,out:false,cd:0,jeop:false});
-    mk(0,1,true);                                  // batter -> 1st (always forced)
-    if(pre[0]) mk(1,2);                             // 1st -> 2nd (forced by batter)
-    if(pre[1]) mk(2, pre[0]?3:2);                   // 2nd -> 3rd if forced, else holds
-    if(pre[2]) mk(3, (pre[0]&&pre[1])?4:3);         // 3rd -> home if forced (loaded), else holds
-    // lead force base = the most advanced runner that must move
-    let lead=-1, leadBase=-1; R.forEach((r,i)=>{ if(r.to>r.from && r.to>leadBase){ leadBase=r.to; lead=i; } });
+    // ── base-running: the batter runs in the chosen direction (last ◂/▸ before contact);
+    //    existing runners force-advance along the chain in THEIR OWN direction, others hold (safe). ──
+    const d = game.runSel||1;                              // -1 = clockwise (to 3rd), +1 = classic (to 1st)
+    const R=[]; const mk=(from,to,bat,dir)=>R.push({from,to,prog:0,isBatter:!!bat,out:false,cd:0,jeop:false,dir});
+    mk(0, firstBase(d), true, d);                          // batter -> first base in the chosen direction
+    // every runner already on base keeps rounding one bag in their OWN direction on the hit
+    for(let i=0;i<3;i++){ const bse=i+1; game.bases[i].forEach(dir=>{ mk(bse, nextBase(bse,dir), false, dir); }); }
+    let lead=-1, leadBase=-1; R.forEach((r,i)=>{ if(moving(r)){ lead=i; leadBase=r.to; } });
     game.field = {
       phase:'air', t:0, land, RUN:150, hitSpeed,
       ball:{sx:FHOME.x, sy:FHOME.y, tx, ty, gx:FHOME.x, gy:FHOME.y, h:0, vx:0, vy:0, vh:0, x:FHOME.x, y:FHOME.y, peak, over, fly, team:'off'},
@@ -434,13 +445,13 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
     f.phase='throw'; beep(520,0.05,'square',0.06); bumpClock();   // a throw keeps the play alive
   }
   // a runner is still in jeopardy (off a base) and can be put out
-  function offBase(r){ return !r.out && (r.jeop || (r.to>r.from && r.prog<1)); }
+  function offBase(r){ return !r.out && (r.jeop || (r.to!==r.from && r.prog<1)); }
   function evalThrow(){ const f=game.field, base=f.throwBase, tp=basePos(base), cf=f.fielders[f.cover];
     const covered = Math.hypot(cf.x-tp.x, cf.y-tp.y) <= 20;
     let outIdx=-1;
     if(covered){ f.runners.forEach((r,i)=>{ if(r.out) return;
       if(r.jeop && r.from===base) outIdx=i;                                  // doubled off a base they'd left (tag up)
-      else if(!r.jeop && r.to===base && r.to>r.from && r.prog<1) outIdx=i;   // beat the forced runner to the bag
+      else if(!r.jeop && r.to===base && r.to!==r.from && r.prog<1) outIdx=i;   // beat the forced runner to the bag
     }); }
     if(outIdx>=0){ f.runners[outIdx].out=true; recordOut(); beep(300,0.14);
       if(playDoneAfterOut()){ finishPlay(); return; }            // side retired · double play · nobody left to get
@@ -480,16 +491,16 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
     endPlay(()=>doResolvePlay(outLabel, wasOut, safeLabel, offPts));
   }
   function doResolvePlay(outLabel, wasOut, safeLabel, offPts){
-    const f=game.field; let runs=0; const nb=[false,false,false];
+    const f=game.field; let runs=0; const nb=[[],[],[]];
     f.runners.forEach(r=>{ if(r.out) return; const base=r.jeop?r.from:r.to;   // jeopardy survivors get back to their base
-      if(base===4) runs++; else if(base>=1&&base<=3) nb[base-1]=true; });
+      if(base===4) runs++; else if(base>=1&&base<=3 && nb[base-1].length<2) nb[base-1].push(r.dir==null?1:r.dir); });
     game.bases=nb; game.baseFlash=18;
     if(runs>0) score(runs);
     if(wasOut){ beep(300,0.14); newBatter(); banner({label:outLabel, col:C.cream, pts:0}); }   // outs already recorded at each out
     else { const op=(offPts==null?HITS.SINGLE.pts:offPts); addOff(op,0); chord([440,587],0.09); newBatter(); banner({label: safeLabel || (runs>0?'SAFE — RUN SCORES!':'BASE HIT'), col: runs>0?C.gold:C.cream, pts:op}); }
   }
   function flyout(){ const f=game.field; game.lastView='field'; recordOut(); beep(340,0.14);   // the batter is caught
-    let jeop=false; f.runners.forEach(r=>{ if(r.isBatter){ r.out=true; } else if(!r.out && r.to>r.from && r.prog<1){ r.jeop=true; jeop=true; } });
+    let jeop=false; f.runners.forEach(r=>{ if(r.isBatter){ r.out=true; } else if(!r.out && r.to!==r.from && r.prog<1){ r.jeop=true; jeop=true; } });
     f.ball.team='def';
     // the catcher HOLDS it and the play stays live — throw to a base a runner has left to double them up
     f.phase='held'; f.cover=f.ctrl; const cfc=f.fielders[f.ctrl]; f.ball.gx=cfc.x; f.ball.gy=cfc.y-6; f.ball.x=f.ball.gx; f.ball.y=f.ball.gy;
@@ -504,7 +515,7 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
     if(a < FA_L+third){ zone='LEFT FIELD'; pts=PTS.hrLeft; }
     else if(a < FA_L+2*third){ zone='CENTER FIELD'; pts=PTS.hrCenter; }
     else { zone='RIGHT FIELD'; pts=PTS.hrRight; }
-    let runs=1; game.bases.forEach(o=>{ if(o) runs++; }); game.bases=[false,false,false];
+    let runs=1; game.bases.forEach(o=>{ runs+=o.length; }); game.bases=[[],[],[]];
     addOff(pts,0); score(runs); newBatter(); game.baseFlash=18; banner({label:'HOME RUN · '+zone, col:C.gold, pts:pts}); }
 
   function score(n){ addOff(n*RUN_PTS, n); beep(1000,0.2,'square',0.08); crowdCheer(true); }   // n runs cross the plate -> big cheer
@@ -547,7 +558,7 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
   function banner(res){ if(res) game.result=res; state='RESULT'; game.resultTimer=60; }   // ~1 s hold before you continue
   function afterResult(){
     if(game.outs>=3){
-      game.outs=0; game.bases=[false,false,false]; newBatter();  // fresh count for the new half
+      game.outs=0; game.bases=[[],[],[]]; newBatter();  // fresh count for the new half
       if(game.half==='top') game.half='bottom';                  // Team B comes up to bat
       else { game.half='top'; game.inning++; }                   // back to Team A, next inning
       if(game.inning>game.maxInnings){ state='OVER'; chord([392,330,262,196],0.18); return; }
@@ -564,8 +575,8 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
 
     if(state==='PITCH'){
       const rs=5.5;     // glide the racket continuously across the box while keys / ◂▸ buttons held
-      if(keys['arrowleft']||keys['a']||mobileLeft) game.racketX=Math.max(RACKET_MIN, game.racketX-rs);
-      if(keys['arrowright']||keys['d']||mobileRight) game.racketX=Math.min(RACKET_MAX, game.racketX+rs);
+      if(keys['arrowleft']||keys['a']||mobileLeft){ game.racketX=Math.max(RACKET_MIN, game.racketX-rs); game.runSel=-1; }  // last ◂ -> run to 3rd
+      if(keys['arrowright']||keys['d']||mobileRight){ game.racketX=Math.min(RACKET_MAX, game.racketX+rs); game.runSel=1; } // last ▸ -> run to 1st
       const p=game.pitch;
       if(p.released && game.ptimer<=0) p.t++;     // ball only flies once released
       if(p.released && !game.swung && p.t/p.dur>=1.12){ // pitch done, batter took it
@@ -579,8 +590,8 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
       // baserunners: take a lead, commit once it lands, or hustle BACK to tag up if it's caught
       f.runners.forEach(r=>{ if(r.cd>0) r.cd--;
         if(r.jeop){ if(r.prog>0){ r.prog=Math.max(0, r.prog-1/f.RUN); if(r.prog<=0){ r.jeop=false; r.to=r.from; } } }  // run back to the bag
-        else if(r.to>r.from && !r.out && r.prog<1){
-          const cap=(!r.isBatter && f.phase==='air' && b.fly)?0.5:1;   // batter ALWAYS runs to first; other runners lead cautiously on a fly
+        else if(r.to!==r.from && !r.out && r.prog<1){
+          const cap=(!r.isBatter && f.phase==='air' && b.fly)?0.5:1;   // batter ALWAYS runs; other runners lead cautiously on a fly
           r.prog=Math.min(cap, r.prog+1/f.RUN);
         }
       });
@@ -823,8 +834,8 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
     g.strokeStyle=C.line; g.lineWidth=3; g.beginPath(); g.moveTo(256,386); g.lineTo(0,EY); g.moveTo(256,386); g.lineTo(W,EY); g.stroke();
     g.lineWidth=2; g.beginPath(); g.moveTo(0,EY); g.lineTo(SBx,SBy); g.moveTo(W,EY); g.lineTo(SBx,SBy); g.stroke();
     // 2nd base
-    g.save(); g.translate(SBx,SBy); g.rotate(Math.PI/4); g.fillStyle=game.bases[1]?C.gold:C.line; g.fillRect(-4,-4,8,8);
-    if(game.bases[1]){ g.fillStyle=C.red; g.fillRect(-1.5,-1.5,3,3); } g.restore();
+    g.save(); g.translate(SBx,SBy); g.rotate(Math.PI/4); g.fillStyle=game.bases[1].length?C.gold:C.line; g.fillRect(-4,-4,8,8);
+    if(game.bases[1].length){ g.fillStyle=C.red; g.fillRect(-1.5,-1.5,3,3); } g.restore();
     // pitcher's mound (the source of the pitch)
     const mg=g.createRadialGradient(MOUND.x,MOUND.y+4,4,MOUND.x,MOUND.y+4,42); mg.addColorStop(0,C.dirtHi); mg.addColorStop(1,C.dirtLo);
     g.fillStyle=mg; g.beginPath(); g.ellipse(MOUND.x,MOUND.y+6,42,17,0,0,7); g.fill();
@@ -1021,7 +1032,7 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
     const pts=[[cx,cy+s],[cx+s,cy],[cx,cy-s],[cx-s,cy]]; // home,1B,2B,3B
     g.strokeStyle=C.cream; g.lineWidth=2; g.beginPath();
     pts.forEach((p,i)=>{ i?g.lineTo(p[0],p[1]):g.moveTo(p[0],p[1]); }); g.closePath(); g.stroke();
-    const lit=[true,game.bases[0],game.bases[1],game.bases[2]];
+    const lit=[true,game.bases[0].length>0,game.bases[1].length>0,game.bases[2].length>0];
     pts.forEach((p,i)=>{ g.save(); g.translate(p[0],p[1]); g.rotate(Math.PI/4); g.fillStyle=lit[i]?C.gold:'#2a3a2a'; g.fillRect(-4,-4,8,8); g.restore(); });
   }
 
@@ -1068,7 +1079,7 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
     // pitcher's mound + rubber
     g.fillStyle=C.dirt; g.beginPath(); g.arc(mc.x,mc.y,15,0,7); g.fill(); g.fillStyle=C.line; g.fillRect(mc.x-4,mc.y-2,8,4);
     // bases + home plate (pentagon)
-    [ [b1,game.bases[0]],[b2,game.bases[1]],[b3,game.bases[2]] ].forEach(([p,on])=>drawBase(p.x,p.y,on));
+    [ [b1,game.bases[0].length>0],[b2,game.bases[1].length>0],[b3,game.bases[2].length>0] ].forEach(([p,on])=>drawBase(p.x,p.y,on));
     g.fillStyle=C.line; g.beginPath(); g.moveTo(h.x,h.y+6); g.lineTo(h.x-5,h.y+1); g.lineTo(h.x-5,h.y-4); g.lineTo(h.x+5,h.y-4); g.lineTo(h.x+5,h.y+1); g.closePath(); g.fill();
     drawFieldNet();
 
@@ -1083,11 +1094,29 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
         if(f.cover>=0){ const cf=f.fielders[f.cover]; g.strokeStyle=C.blue; g.lineWidth=2; g.beginPath(); g.arc(cf.x,cf.y-4,15,0,7); g.stroke(); ptxt('COVER',cf.x,cf.y-30,C.blue,7,'center'); } }
       // every offensive runner — they carry RACKETS and can deflect their own team's live ball
       const oJ=batJersey(), oP=batPant(), dJ=fieldJersey(), dP=fieldPant();   // offence vs defence colours for this half
-      f.runners.forEach(r=>{ if(r.out) return; const r0=runnerPos(r);
-        const od=Math.hypot(r0.x-mc.x,r0.y-mc.y)||1, rp={x:r0.x+(r0.x-mc.x)/od*11, y:r0.y+(r0.y-mc.y)/od*11};   // OFFENCE sits OUTSIDE the basepath
+      const live=f.runners.filter(r=>!r.out);
+      const info=live.map(r=>{ const r0=runnerPos(r);
+        const tb=(r.to!==r.from)?r.to:nextBase(r.from,r.dir), a=basePos(r.from), bp=basePos(tb);
+        let vx=bp.x-a.x, vy=bp.y-a.y, vl=Math.hypot(vx,vy)||1;
+        return {r0, lx:-vy/vl, ly:vx/vl};   // unit perpendicular to travel = this runner's lane (left of travel)
+      });
+      live.forEach((r,idx)=>{ const it=info[idx], r0=it.r0;
+        // each runner keeps to their own lane -> runners going OPPOSITE ways pass in PARALLEL lanes
+        // instead of colliding; same-lane runners sharing a spot fan out so they stay readable
+        let same=0, before=0;
+        for(let j=0;j<live.length;j++){ const o=info[j];
+          if(Math.hypot(o.r0.x-r0.x,o.r0.y-r0.y)<13 && (o.lx*it.lx+o.ly*it.ly)>0.6){ same++; if(j<idx) before++; } }
+        const fan = same>1 ? (before-(same-1)/2)*13 : 0;
+        const rp={ x: r0.x + it.lx*(11+fan), y: r0.y + it.ly*(11+fan) };
         player(rp.x,rp.y,oJ,oP,0.8, r.isBatter?99:50);
         g.strokeStyle='#6a4a2a'; g.lineWidth=2; g.beginPath(); g.moveTo(rp.x+4,rp.y-1); g.lineTo(rp.x+9,rp.y-7); g.stroke();        // racket handle
         g.strokeStyle=C.gold; g.lineWidth=1.5; g.beginPath(); g.ellipse(rp.x+10,rp.y-8,2.6,3.8,0.5,0,7); g.stroke();               // racket head
+        // direction cue: orange ring = CLOCKWISE (running to 3rd), cyan ring = classic CCW; chevron points to the next bag
+        const dcol = r.dir<0 ? '#FF8A3D' : '#36D2C6';
+        g.strokeStyle=dcol; g.lineWidth=2; g.beginPath(); g.arc(rp.x,rp.y-5,13,0,7); g.stroke();
+        const tb=(r.to!==r.from)?r.to:nextBase(r.from,r.dir), tp2=basePos(tb), ca=Math.atan2(tp2.y-(rp.y-5),tp2.x-rp.x);
+        g.save(); g.translate(rp.x+Math.cos(ca)*15, (rp.y-5)+Math.sin(ca)*15); g.rotate(ca);
+        g.strokeStyle=dcol; g.lineWidth=2.6; g.lineCap='round'; g.beginPath(); g.moveTo(-3,-4); g.lineTo(3,0); g.lineTo(-3,4); g.stroke(); g.restore();
       });
       // 9 fielders; the controlled (nearest) one gets a marker
       f.fielders.forEach((fl,i)=>{
