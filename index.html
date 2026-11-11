@@ -133,8 +133,8 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
     SINGLE:{label:'SINGLE — 1ST', pts:PTS.first, depth:'shallow'},
   };
   const RUN_PTS = PTS.home; // "Score at Home"
-  const GATE_PTS = PTS.gate;         // defence drives it into the net
-  const GATEMISS_PTS = PTS.gatemiss; // defender smashes at the net but misses -> offence scores
+  const GATE_PTS = 1;         // defence drives it into the net (traditional scale: 1 gate goal)
+  const GATEMISS_PTS = 1;     // defender smashes at the net but misses -> offence +1
 
   // ── audio ─────────────────────────────────────────────────────────
   let actx, sfxOn=true, musicOn=true, musicStarted=false, musicNext=0, musicStep=0, audioUnlocked=false;
@@ -497,7 +497,7 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
     game.bases=nb; game.baseFlash=18;
     if(runs>0) score(runs);
     if(wasOut){ beep(300,0.14); newBatter(); banner({label:outLabel, col:C.cream, pts:0}); }   // outs already recorded at each out
-    else { const op=(offPts==null?HITS.SINGLE.pts:offPts); addOff(op,0); chord([440,587],0.09); newBatter(); banner({label: safeLabel || (runs>0?'SAFE — RUN SCORES!':'BASE HIT'), col: runs>0?C.gold:C.cream, pts:op}); }
+    else { const op=(offPts==null?1:offPts); addOff(op,0); chord([440,587],0.09); newBatter(); banner({label: safeLabel || (runs>0?('SAFE · +'+runs+(runs>1?' RUNS':' RUN')):'BASE HIT'), col: runs>0?C.gold:C.cream, pts:0}); }
   }
   function flyout(){ const f=game.field; game.lastView='field'; recordOut(); beep(340,0.14);   // the batter is caught
     let jeop=false; f.runners.forEach(r=>{ if(r.isBatter){ r.out=true; } else if(!r.out && r.to!==r.from && r.prog<1){ r.jeop=true; jeop=true; } });
@@ -516,9 +516,9 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
     else if(a < FA_L+2*third){ zone='CENTER FIELD'; pts=PTS.hrCenter; }
     else { zone='RIGHT FIELD'; pts=PTS.hrRight; }
     let runs=1; game.bases.forEach(o=>{ runs+=o.length; }); game.bases=[[],[],[]];
-    addOff(pts,0); score(runs); newBatter(); game.baseFlash=18; banner({label:'HOME RUN · '+zone, col:C.gold, pts:pts}); }
+    addOff(1,0); score(runs); newBatter(); game.baseFlash=18; banner({label:'HOME RUN · '+zone+' · +'+runs+(runs>1?' RUNS':' RUN'), col:C.gold, pts:0}); }
 
-  function score(n){ addOff(n*RUN_PTS, n); beep(1000,0.2,'square',0.08); crowdCheer(true); }   // n runs cross the plate -> big cheer
+  function score(n){ addOff(0, n); beep(1000,0.2,'square',0.08); crowdCheer(true); }   // n runners tag home = n runs (traditional, no bonus points)
 
   // ── net smash — an OUTFIELDER drives the ball into the Goalie net ─────
   function outfieldDown(){ const f=game.field;   // ▾ once = throw home (fires after a short window) · ▾▾ = smash the net
@@ -641,7 +641,7 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
               let ang=Math.atan2(py-FHOME.y, px-FHOME.x); if(ang<0) ang+=Math.PI*2;
               const dH=Math.hypot(px-FHOME.x, py-FHOME.y), fair=(ang>=FA_L && ang<=FA_R);
               if(fair && dH>150){                                          // clean deflection into the outfield -> points
-                addOff(HITS.NML.pts,0); f.deflectFx={x:rp.x,y:rp.y,t:20,label:'+'+HITS.NML.pts,col:C.gold};
+                addOff(1,0); f.deflectFx={x:rp.x,y:rp.y,t:20,label:'+1 ON BASE',col:C.gold};
               } else {                                                      // into the infield / foul -> the runner is OUT
                 r.out=true; recordOut(); b.team='def'; f.interceptT=14;
                 f.deflectFx={x:rp.x,y:rp.y,t:20,label:(fair?'INFIELD':'FOUL')+' — OUT!',col:C.red};
@@ -1008,10 +1008,10 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
     stxt('CURRENT', x0+lblW+9*colW+totW/2, y0+9, C.gold, 8,'center');
     stxt('TOTAL', x0+lblW+9*colW+totW/2, y0+18, C.gold, 8,'center');
     // 4 rows: top half (A bats / B fields), bottom half (A fields / B bats)
-    const rows=[ ['A BAT', c=>c?c.pts:0, 'top', C.cream],
-                 ['B DEF', c=>c?c.def:0, 'top', C.blue],
-                 ['A DEF', c=>c?c.def:0, 'bot', C.blue],
-                 ['B BAT', c=>c?c.pts:0, 'bot', C.cream] ];
+    const rows=[ ['A RUN', c=>c?c.runs:0, 'top', C.cream],
+                 ['B GATE', c=>c?c.def:0, 'top', C.blue],
+                 ['A GATE', c=>c?c.def:0, 'bot', C.blue],
+                 ['B RUN', c=>c?c.runs:0, 'bot', C.cream] ];
     rows.forEach((row,ri)=>{ const ry=y0+30+ri*12, half=row[2];
       stxt(row[0], x0+6, ry, row[3], 8,'left', true);
       for(let i=1;i<=9;i++){
@@ -1022,8 +1022,8 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
     });
     // running totals (a team's pts = its offence when batting + its defence when fielding)
     const tcx=x0+lblW+9*colW+totW/2;
-    stxt('A '+game.teams.A.pts+'pts '+game.teams.A.runs+'r', tcx, y0+36, C.cream, 9,'center', true);
-    stxt('B '+game.teams.B.pts+'pts '+game.teams.B.runs+'r', tcx, y0+60, C.cream, 9,'center', true);
+    stxt('A  '+game.teams.A.runs+'R · '+game.teams.A.pts+' OB', tcx, y0+36, C.cream, 9,'center', true);
+    stxt('B  '+game.teams.B.runs+'R · '+game.teams.B.pts+' OB', tcx, y0+60, C.cream, 9,'center', true);
     // current half indicator
     stxt('INNING '+game.inning+(game.half==='top'?' · TOP (A bats)':' · BOTTOM (B bats)'), x0+6, y0+74, C.gold, 8,'left', true);
   }
@@ -1174,7 +1174,7 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
     if(state!=='RESULT'||!game.result) return; const r=game.result;
     g.fillStyle='rgba(8,9,14,0.62)'; g.fillRect(0,196,W,68); g.fillStyle=r.col; g.fillRect(0,196,W,3); g.fillRect(0,261,W,3);
     txt(r.label,256,222,r.col,22,'center');
-    if(r.pts) txt('+'+r.pts+(r.gate?' DEF':' PTS'),256,246,C.cream,13,'center');
+    if(r.pts) txt('+'+r.pts+(r.gate?' GATE':' ON BASE'),256,246,C.cream,13,'center');
     if(!r.auto && game.resultTimer<=0 && Math.floor(game.t/16)%2===0) ptxt('▶ TAP / SPACE',256,252,C.gold,9,'center');
   }
   function drawTitle(){ drawBat(); g.fillStyle='rgba(8,9,14,0.84)'; g.fillRect(0,0,W,H);
@@ -1198,9 +1198,9 @@ canvas{ position:absolute; inset:0; width:100%; height:100%; touch-action:none; 
   }
   function drawOver(){ drawBat(); g.fillStyle='rgba(8,9,14,0.82)'; g.fillRect(0,0,W,H);
     txt('GAME OVER',256,140,C.red,38,'center');
-    const A=game.teams.A, B=game.teams.B, win = A.pts===B.pts?'TIE' : (A.pts>B.pts?'TEAM A WINS':'TEAM B WINS');
-    txt('TEAM A   '+A.pts+' pts   '+A.runs+' runs',256,196,C.cream,16,'center');
-    txt('TEAM B   '+B.pts+' pts   '+B.runs+' runs',256,224,C.cream,16,'center');
+    const A=game.teams.A, B=game.teams.B, win = A.runs===B.runs?'TIE' : (A.runs>B.runs?'TEAM A WINS':'TEAM B WINS');
+    txt('TEAM A   '+A.runs+' RUNS   ('+A.pts+' on base)',256,196,C.cream,16,'center');
+    txt('TEAM B   '+B.runs+' RUNS   ('+B.pts+' on base)',256,224,C.cream,16,'center');
     txt(win,256,266,C.gold,22,'center');
     if(Math.floor(game.t/18)%2===0) ptxt('▶ PLAY AGAIN',256,320,C.gold,12,'center');
   }
